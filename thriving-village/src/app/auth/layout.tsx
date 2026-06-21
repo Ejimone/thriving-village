@@ -1,6 +1,12 @@
 import Link from "next/link";
 import { Logo } from "@/components/ui/Logo";
 
+// Without this, signin/signup get statically prerendered (no dynamic API is
+// read here) and Vercel serves them as static HTML — which only supports
+// GET/HEAD, so the Server Action's form POST gets rejected with 405 before
+// it ever reaches signInAction/signUpAction.
+export const dynamic = "force-dynamic";
+
 export default function AuthLayout({
   children,
 }: {
