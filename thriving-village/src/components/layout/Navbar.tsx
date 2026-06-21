@@ -7,8 +7,11 @@ import { Menu, X, MessageCircle } from "lucide-react";
 import { Logo } from "@/components/ui/Logo";
 import { Button } from "@/components/ui/Button";
 import { IconButton } from "@/components/ui/IconButton";
+import { Avatar } from "@/components/ui/Avatar";
 import { WHATSAPP_URL } from "@/lib/data";
+import { signOutAction } from "@/lib/actions/auth";
 import { cn } from "@/lib/utils";
+import type { Role } from "@/lib/constants";
 
 const NAV = [
   { href: "/jobs", label: "Jobs" },
@@ -18,9 +21,10 @@ const NAV = [
   { href: "/about", label: "About" },
 ];
 
-export function Navbar() {
+export function Navbar({ session }: { session: { role: Role; name: string } | null }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const homeHref = session?.role === "Admin" ? "/admin" : "/dashboard";
 
   const isActive = (href: string) =>
     href === "/" ? pathname === "/" : pathname.startsWith(href);
@@ -52,17 +56,35 @@ export function Navbar() {
         </nav>
 
         <div className="hidden md:flex items-center gap-2.5">
-          <Button href="/auth/signin" variant="text" size="sm">
-            Sign in
-          </Button>
-          <Button
-            href={WHATSAPP_URL}
-            variant="inverse"
-            size="sm"
-            iconLeft={<MessageCircle size={16} />}
-          >
-            Join on WhatsApp
-          </Button>
+          {session ? (
+            <>
+              <Button href={homeHref} variant="text" size="sm">
+                {session.role === "Admin" ? "Admin" : "Dashboard"}
+              </Button>
+              <form action={signOutAction}>
+                <Button type="submit" variant="outline" size="sm">
+                  Sign out
+                </Button>
+              </form>
+              <Link href={homeHref} aria-label="Account">
+                <Avatar name={session.name} size={32} />
+              </Link>
+            </>
+          ) : (
+            <>
+              <Button href="/auth/signin" variant="text" size="sm">
+                Sign in
+              </Button>
+              <Button
+                href={WHATSAPP_URL}
+                variant="inverse"
+                size="sm"
+                iconLeft={<MessageCircle size={16} />}
+              >
+                Join on WhatsApp
+              </Button>
+            </>
+          )}
         </div>
 
         {/* Mobile trigger */}
@@ -116,14 +138,32 @@ export function Navbar() {
               ))}
             </nav>
             <div className="mt-auto flex flex-col gap-3 p-6 border-t border-gray-200">
-              <Button
-                href="/auth/signin"
-                variant="outline"
-                fullWidth
-                onClick={() => setOpen(false)}
-              >
-                Sign in
-              </Button>
+              {session ? (
+                <>
+                  <Button
+                    href={homeHref}
+                    variant="outline"
+                    fullWidth
+                    onClick={() => setOpen(false)}
+                  >
+                    {session.role === "Admin" ? "Admin" : "Dashboard"}
+                  </Button>
+                  <form action={signOutAction}>
+                    <Button type="submit" variant="text" fullWidth>
+                      Sign out
+                    </Button>
+                  </form>
+                </>
+              ) : (
+                <Button
+                  href="/auth/signin"
+                  variant="outline"
+                  fullWidth
+                  onClick={() => setOpen(false)}
+                >
+                  Sign in
+                </Button>
+              )}
               <Button
                 href={WHATSAPP_URL}
                 variant="inverse"

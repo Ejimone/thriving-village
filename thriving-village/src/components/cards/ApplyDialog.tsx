@@ -1,12 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useActionState, useEffect, useId, useState } from "react";
 import { Button, type ButtonProps } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { FileUpload } from "@/components/ui/FileUpload";
 import { toast } from "@/components/ui/Toaster";
+
+export type SubmitResult = { error?: string; success?: boolean };
 
 type Props = {
   /** Button label, e.g. "Apply for this role". */
@@ -17,6 +19,10 @@ type Props = {
   subtitle?: string;
   /** What the textarea is asking for. */
   promptLabel?: string;
+  /** Field name the textarea submits as — matches the target endpoint's body shape. */
+  promptName?: "message" | "description";
+  /** Whether the prompt is required (contest entries require a description; applications/enrollment don't). */
+  promptRequired?: boolean;
   /** Whether to show a file upload (CVs, submissions). */
   withFile?: boolean;
   fileHint?: string;
@@ -25,30 +31,41 @@ type Props = {
   buttonVariant?: ButtonProps["variant"];
   size?: ButtonProps["size"];
   fullWidth?: boolean;
+  /** Bound Server Action — e.g. `applyToJobAction.bind(null, job.id)`. */
+  action: (formData: FormData) => Promise<SubmitResult>;
 };
 
-/**
- * Placeholder apply / submit flow. No real submission happens —
- * the in-house team wires this up. We just collect input and toast.
- */
 export function ApplyDialog({
   label,
   title,
   subtitle,
   promptLabel = "A short note (optional)",
+  promptName = "message",
+  promptRequired = false,
   withFile = false,
   fileHint,
   successMessage,
   buttonVariant = "inverse",
   size = "lg",
   fullWidth,
+  action,
 }: Props) {
   const [open, setOpen] = useState(false);
+  const formId = useId();
+  const [state, formAction, pending] = useActionState<SubmitResult, FormData>(
+    async (_prev, formData) => action(formData),
+    {},
+  );
 
-  function submit() {
-    setOpen(false);
-    toast.success(successMessage);
-  }
+  useEffect(() => {
+    if (state.success) {
+      setOpen(false);
+      toast.success(successMessage);
+    } else if (state.error) {
+      toast.error(state.error);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state]);
 
   return (
     <>
@@ -66,28 +83,32 @@ export function ApplyDialog({
         title={title}
         footer={
           <>
-            <Button variant="outline" size="sm" onClick={() => setOpen(false)}>
+            <Button variant="outline" size="sm" type="button" onClick={() => setOpen(false)}>
               Cancel
             </Button>
-            <Button variant="inverse" size="sm" onClick={submit}>
-              Submit
+            <Button variant="inverse" size="sm" type="submit" form={formId} disabled={pending}>
+              {pending ? "Submitting…" : "Submit"}
             </Button>
           </>
         }
       >
-        <div className="flex flex-col gap-4">
+        <form id={formId} action={formAction} className="flex flex-col gap-4">
           {subtitle && (
             <p className="-mt-2 text-[15px] text-gray-600 [letter-spacing:var(--tv-track-tight)]">
               {subtitle}
             </p>
           )}
-          <Input label="Full name" placeholder="Your name" />
-          <Input label="WhatsApp number" placeholder="+234 ..." />
-          <Textarea label={promptLabel} rows={4} placeholder="Tell us a little…" />
-          {withFile && (
-            <FileUpload label="Attachment" hint={fileHint} />
-          )}
-        </div>
+          <Input name="name" label="Full name" placeholder="Your name" required />
+          <Input name="whatsapp" label="WhatsApp number" placeholder="+234 ..." required />
+          <Textarea
+            name={promptName}
+            label={promptLabel}
+            rows={4}
+            placeholder="Tell us a little…"
+            required={promptRequired}
+          />
+          {withFile && <FileUpload name="file" label="Attachment" hint={fileHint} />}
+        </form>
       </Modal>
     </>
   );

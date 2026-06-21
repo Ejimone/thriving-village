@@ -12,20 +12,22 @@ export async function signInAction(formData: FormData): Promise<AuthResult> {
   const password = String(formData.get("password") || "");
   if (!identifier || !password) return { error: "Email and password are required." };
 
+  let role: Role;
   try {
     const { jwt } = await strapiFetch<{ jwt: string }>("/api/auth/local", {
       method: "POST",
       body: { identifier, password },
     });
-    const me = await strapiFetch<{ data: { role?: string } }>("/api/me", {
+    const me = await strapiFetch<{ data: { username?: string; role?: string } }>("/api/me", {
       token: jwt,
       noStore: true,
     });
-    await setSession(jwt, (me.data.role as Role) || "Talent");
+    role = (me.data.role as Role) || "Talent";
+    await setSession(jwt, role, me.data.username || "");
   } catch (err) {
     return { error: err instanceof StrapiError ? err.message : "Something went wrong. Please try again." };
   }
-  redirect("/dashboard");
+  redirect(role === "Admin" ? "/admin" : "/dashboard");
 }
 
 export async function signUpAction(formData: FormData): Promise<AuthResult> {
@@ -46,7 +48,7 @@ export async function signUpAction(formData: FormData): Promise<AuthResult> {
       method: "POST",
       body: { username: fullName, email, password, role },
     });
-    await setSession(jwt, role === "employer" ? "Employer" : "Talent");
+    await setSession(jwt, role === "employer" ? "Employer" : "Talent", fullName);
   } catch (err) {
     return { error: err instanceof StrapiError ? err.message : "Something went wrong. Please try again." };
   }

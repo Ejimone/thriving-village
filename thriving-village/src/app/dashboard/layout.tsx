@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import {
   LayoutDashboard,
   GraduationCap,
@@ -6,6 +7,7 @@ import {
 } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import type { NavItem } from "@/components/layout/SidebarNav";
+import { getSession } from "@/lib/session";
 
 const ITEMS: NavItem[] = [
   {
@@ -23,13 +25,16 @@ const ITEMS: NavItem[] = [
   { href: "/dashboard/contests", label: "Contest entries", icon: <Trophy size={18} /> },
 ];
 
-export default function DashboardLayout({
+export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const session = await getSession();
+  if (!session) redirect("/auth/signin");
+
   return (
-    <AppShell items={ITEMS} areaLabel="Dashboard" userName="Ada Okonkwo">
+    <AppShell items={ITEMS} areaLabel="Dashboard" userName={session.name}>
       {children}
     </AppShell>
   );

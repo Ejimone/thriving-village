@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import {
   ArrowLeft,
   Play,
@@ -15,14 +15,17 @@ import { Button } from "@/components/ui/Button";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { toast } from "@/components/ui/Toaster";
 import { cn } from "@/lib/utils";
+import { markLessonCompleteAction } from "@/lib/actions/progress";
 import type { Course } from "@/lib/data";
 
 export function LessonViewer({
   course,
   lessonId,
+  initialCompleted,
 }: {
   course: Course;
   lessonId: string;
+  initialCompleted: string[];
 }) {
   const flat = course.modules.flatMap((m) =>
     m.lessons.map((l) => ({ ...l, module: m.title })),
@@ -31,17 +34,28 @@ export function LessonViewer({
   const currentIndex = flat.findIndex((l) => l.id === current.id);
   const next = flat[currentIndex + 1];
 
-  const [completed, setCompleted] = useState<Record<string, boolean>>({});
+  const [completed, setCompleted] = useState<Record<string, boolean>>(
+    () => Object.fromEntries(initialCompleted.map((id) => [id, true])),
+  );
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [pending, startTransition] = useTransition();
 
   const doneCount = Object.values(completed).filter(Boolean).length;
   const progress = Math.round((doneCount / flat.length) * 100);
 
   function markComplete() {
-    setCompleted((c) => ({ ...c, [current.id]: true }));
-    toast.success(
-      next ? "Lesson complete. On to the next one." : "Course complete. Well done!",
-    );
+    setCompleted((c) => ({ ...c, [current.id]: true })); // optimistic
+    startTransition(async () => {
+      const result = await markLessonCompleteAction(course.dbId, current.id);
+      if (result.error) {
+        setCompleted((c) => ({ ...c, [current.id]: false }));
+        toast.error(result.error);
+        return;
+      }
+      toast.success(
+        next ? "Lesson complete. On to the next one." : "Course complete. Well done!",
+      );
+    });
   }
 
   return (
@@ -173,6 +187,7 @@ export function LessonViewer({
             <Button
               variant={completed[current.id] ? "outline" : "inverse"}
               onClick={markComplete}
+              disabled={pending || completed[current.id]}
               iconLeft={<Check size={18} />}
             >
               {completed[current.id] ? "Completed" : "Mark complete"}

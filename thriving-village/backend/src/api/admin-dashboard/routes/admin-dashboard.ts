@@ -12,5 +12,11 @@ export default {
       handler: 'admin-dashboard.activity',
       config: { policies: [] },
     },
+    {
+      method: 'GET',
+      path: '/admin-dashboard/stream',
+      handler: 'admin-dashboard.stream',
+      config: { policies: [] },
+    },
   ],
 };

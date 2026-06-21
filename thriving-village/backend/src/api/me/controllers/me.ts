@@ -19,7 +19,9 @@ export default {
   // needs: which role to gate /admin/** on.
   async whoami(ctx: any) {
     const user = ctx.state.user;
-    ctx.body = { data: { id: user.id, email: user.email, role: user.role?.name } };
+    ctx.body = {
+      data: { id: user.id, username: user.username, email: user.email, role: user.role?.name },
+    };
   },
 
   async applications(ctx: any) {

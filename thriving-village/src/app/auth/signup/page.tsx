@@ -1,12 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useActionState, useState } from "react";
 import { Briefcase, Building2 } from "lucide-react";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
-import { toast } from "@/components/ui/Toaster";
 import { cn } from "@/lib/utils";
+import { signUpAction, type AuthResult } from "@/lib/actions/auth";
 
 type Role = "talent" | "employer";
 
@@ -28,16 +28,10 @@ const ROLES: { value: Role; title: string; body: string; icon: React.ReactNode }
 
 export default function SignUpPage() {
   const [role, setRole] = useState<Role>("talent");
-  const [loading, setLoading] = useState(false);
-
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      toast.info("Sign-up is wired up by the dev team. This is a UI placeholder.");
-    }, 600);
-  }
+  const [state, formAction, pending] = useActionState<AuthResult, FormData>(
+    (_prev, formData) => signUpAction(formData),
+    {},
+  );
 
   return (
     <div>
@@ -89,18 +83,19 @@ export default function SignUpPage() {
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="mt-5 flex flex-col gap-4">
-        <Input label="Full name" placeholder="Your name" required />
-        <Input label="Email" type="email" placeholder="you@example.com" required />
-        <Input
-          label="WhatsApp number"
-          placeholder="+234 ..."
-          hint="We reach you here — the community lives on WhatsApp."
-          required
-        />
-        <Input label="Password" type="password" placeholder="••••••••" required />
-        <Button type="submit" variant="inverse" size="lg" fullWidth disabled={loading}>
-          {loading ? "Creating account…" : "Create account"}
+      <form action={formAction} className="mt-5 flex flex-col gap-4">
+        <input type="hidden" name="role" value={role} />
+        <Input name="name" label="Full name" placeholder="Your name" required />
+        <Input name="email" label="Email" type="email" placeholder="you@example.com" required />
+        <Input name="password" label="Password" type="password" placeholder="••••••••" required />
+        <p className="-mt-1 text-[13px] text-gray-500 [letter-spacing:var(--tv-track-tight)]">
+          We&apos;ll ask for your WhatsApp number when you apply, enter, or enroll.
+        </p>
+        {state.error && (
+          <p className="text-[13px] text-error [letter-spacing:var(--tv-track-tight)]">{state.error}</p>
+        )}
+        <Button type="submit" variant="inverse" size="lg" fullWidth disabled={pending}>
+          {pending ? "Creating account…" : "Create account"}
         </Button>
       </form>
 

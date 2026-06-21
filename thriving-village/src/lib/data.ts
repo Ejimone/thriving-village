@@ -37,6 +37,8 @@ const emptyPage = <T>(page = 1, pageSize = 12): Paginated<T> => ({
 
 export type Job = {
   id: string; // = Strapi slug
+  /** Strapi's documentId — needed only for admin write routes (PUT/DELETE use documentId, not slug). */
+  documentId: string;
   title: string;
   org: string;
   orgKind: string;
@@ -50,11 +52,14 @@ export type Job = {
   summary: string;
   responsibilities: string[];
   requirements: string[];
+  /** Only populated by admin (full) fetches — never relevant to public read paths. */
+  status?: "draft" | "published" | "closed";
 };
 
 function mapJob(raw: Record<string, unknown>): Job {
   return {
     id: String(raw.slug),
+    documentId: String(raw.documentId),
     title: String(raw.title),
     org: String(raw.org),
     orgKind: String(raw.orgKind),
@@ -66,6 +71,7 @@ function mapJob(raw: Record<string, unknown>): Job {
     pay: String(raw.pay),
     postedAgo: String(raw.postedAgo ?? ""),
     summary: String(raw.summary ?? ""),
+    status: raw.status as Job["status"] | undefined,
     responsibilities: (raw.responsibilities as string[]) ?? [],
     requirements: (raw.requirements as string[]) ?? [],
   };
@@ -79,9 +85,13 @@ export async function getJobs(
     query?: string;
     page?: number;
     pageSize?: number;
+    /** Admin-only: skip the restricted field list (admin forms need to edit every field). */
+    full?: boolean;
+    /** Admin-only: needed so the backend's draft-hiding filter doesn't apply to the caller's own admin list. */
+    token?: string;
   } = {},
 ): Promise<Paginated<Job>> {
-  const { field, locationType, level, query, page = 1, pageSize = 12 } = params;
+  const { field, locationType, level, query, page = 1, pageSize = 12, full, token } = params;
   const filters: Record<string, unknown> = {};
   if (field) filters.field = { $eq: field };
   if (locationType) filters.locationType = { $eq: locationType };
@@ -96,21 +106,27 @@ export async function getJobs(
         filters,
         sort: "createdAt:desc",
         pagination: { page, pageSize },
-        fields: [
-          "title",
-          "slug",
-          "org",
-          "orgKind",
-          "field",
-          "location",
-          "locationType",
-          "type",
-          "level",
-          "pay",
-          "postedAgo",
-        ],
+        ...(full
+          ? {}
+          : {
+              fields: [
+                "title",
+                "slug",
+                "org",
+                "orgKind",
+                "field",
+                "location",
+                "locationType",
+                "type",
+                "level",
+                "pay",
+                "postedAgo",
+              ],
+            }),
       },
-      next: { revalidate: 60, tags: ["jobs"] },
+      next: full ? undefined : { revalidate: 60, tags: ["jobs"] },
+      noStore: full,
+      token,
     });
     return {
       items: res.data.map(mapJob),
@@ -143,11 +159,15 @@ export type ContestPrize = { place: number; label: string; amount: number };
 
 export type Contest = {
   id: string; // = slug
+  /** Strapi's documentId — needed only for admin write routes (PUT/DELETE use documentId, not slug). */
+  documentId: string;
   title: string;
   field: Field;
   prizes: ContestPrize[];
   entries: number;
   daysLeft: number;
+  /** Raw ISO deadline — used only to prefill the admin edit form. */
+  deadline: string;
   status: "live" | "past";
   brief: string;
   rules: string[];
@@ -166,11 +186,13 @@ function mapContest(raw: Record<string, unknown>): Contest {
   }));
   return {
     id: String(raw.slug),
+    documentId: String(raw.documentId),
     title: String(raw.title),
     field: raw.field as Field,
     prizes,
     entries: Number(raw.entries ?? 0),
     daysLeft: Number(raw.daysLeft ?? 0),
+    deadline: String(raw.deadline ?? ""),
     status: raw.status as Contest["status"],
     brief: String(raw.brief ?? ""),
     rules: (raw.rules as string[]) ?? [],
@@ -255,6 +277,8 @@ export type Course = {
   id: string; // = slug
   /** Strapi's numeric row id — needed only to scope the /api/lesson-progresses lookup. */
   dbId: number;
+  /** Strapi's documentId — needed only for admin write routes (PUT/DELETE use documentId, not slug). */
+  documentId: string;
   title: string;
   field: Field;
   level: ExperienceLevel;
@@ -285,6 +309,7 @@ function mapCourse(raw: Record<string, unknown>): Course {
   return {
     id: String(raw.slug),
     dbId: Number(raw.id),
+    documentId: String(raw.documentId),
     title: String(raw.title),
     field: raw.field as Field,
     level: raw.level as ExperienceLevel,

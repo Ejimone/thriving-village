@@ -1,13 +1,24 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { GraduationCap } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { MY_COURSES, getCourse, photo } from "@/lib/data";
+import { getMyCourses, getCourse, photo } from "@/lib/data";
+import { getSession } from "@/lib/session";
 
-export default function MyCoursesPage() {
+export default async function MyCoursesPage() {
+  const session = await getSession();
+  if (!session) redirect("/auth/signin");
+
+  const myCourses = await getMyCourses(session.jwt);
+  const courses = await Promise.all(myCourses.map((mc) => getCourse(mc.courseId)));
+  const rows = myCourses
+    .map((mc, i) => ({ progress: mc.progress, course: courses[i] }))
+    .filter((r) => r.course !== null);
+
   return (
     <div className="flex flex-col gap-6">
       <div>
@@ -19,7 +30,7 @@ export default function MyCoursesPage() {
         </p>
       </div>
 
-      {MY_COURSES.length === 0 ? (
+      {rows.length === 0 ? (
         <EmptyState
           icon={<GraduationCap size={22} />}
           title="You haven't enrolled yet"
@@ -32,16 +43,15 @@ export default function MyCoursesPage() {
         />
       ) : (
         <div className="flex flex-col gap-4">
-          {MY_COURSES.map((mc) => {
-            const course = getCourse(mc.courseId)!;
-            const done = mc.progress >= 100;
-            const firstLesson = course.modules[0].lessons[0];
+          {rows.map(({ progress, course }) => {
+            const done = progress >= 100;
+            const firstLesson = course!.modules[0]?.lessons[0];
             return (
-              <Card key={mc.courseId} padded={false} className="flex flex-col gap-4 sm:flex-row">
+              <Card key={course!.id} padded={false} className="flex flex-col gap-4 sm:flex-row">
                 <div className="h-36 w-full flex-none bg-gray-900 sm:h-auto sm:w-[140px]">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={photo(course.seed, 280, 360)}
+                    src={photo(course!.seed, 280, 360)}
                     alt=""
                     className="h-full w-full object-cover tv-photo"
                   />
@@ -49,7 +59,7 @@ export default function MyCoursesPage() {
                 <div className="flex flex-1 flex-col gap-3 p-5">
                   <div className="flex items-center gap-2">
                     <Badge tone="neutral" size="sm">
-                      {course.field}
+                      {course!.field}
                     </Badge>
                     {done && (
                       <Badge tone="inverse" size="sm">
@@ -58,20 +68,22 @@ export default function MyCoursesPage() {
                     )}
                   </div>
                   <Link
-                    href={`/courses/${course.id}`}
+                    href={`/courses/${course!.id}`}
                     className="text-[19px] font-semibold text-black [letter-spacing:var(--tv-track-tight)] hover:underline"
                   >
-                    {course.title}
+                    {course!.title}
                   </Link>
-                  <ProgressBar value={mc.progress} showLabel />
+                  <ProgressBar value={progress} showLabel />
                   <div className="mt-auto">
-                    <Button
-                      href={`/courses/${course.id}/lessons/${firstLesson.id}`}
-                      variant={done ? "outline" : "inverse"}
-                      size="sm"
-                    >
-                      {done ? "Review course" : "Continue learning"}
-                    </Button>
+                    {firstLesson && (
+                      <Button
+                        href={`/courses/${course!.id}/lessons/${firstLesson.id}`}
+                        variant={done ? "outline" : "inverse"}
+                        size="sm"
+                      >
+                        {done ? "Review course" : "Continue learning"}
+                      </Button>
+                    )}
                   </div>
                 </div>
               </Card>

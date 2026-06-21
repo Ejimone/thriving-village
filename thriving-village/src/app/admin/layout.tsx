@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import {
   LayoutDashboard,
   Briefcase,
@@ -6,6 +7,7 @@ import {
 } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import type { NavItem } from "@/components/layout/SidebarNav";
+import { getSession } from "@/lib/session";
 
 const ITEMS: NavItem[] = [
   { href: "/admin", label: "Overview", icon: <LayoutDashboard size={18} />, exact: true },
@@ -14,13 +16,16 @@ const ITEMS: NavItem[] = [
   { href: "/admin/courses", label: "Courses", icon: <GraduationCap size={18} /> },
 ];
 
-export default function AdminLayout({
+export default async function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const session = await getSession();
+  if (!session || session.role !== "Admin") redirect("/auth/signin");
+
   return (
-    <AppShell items={ITEMS} areaLabel="Admin" userName="Admin">
+    <AppShell items={ITEMS} areaLabel="Admin" userName={session.name}>
       {children}
     </AppShell>
   );

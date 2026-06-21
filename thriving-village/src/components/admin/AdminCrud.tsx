@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useActionState, useEffect, useId, useState, useTransition } from "react";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -9,21 +9,23 @@ import { Modal } from "@/components/ui/Modal";
 import { toast } from "@/components/ui/Toaster";
 
 export type AdminRow = {
-  id: string;
+  id: string; // documentId
+  label: string; // used in delete confirmation + toasts
   cells: React.ReactNode[];
 };
 
-/**
- * Generic admin list with create / edit / delete.
- * UI only — actions just toast. The dev team wires real mutations.
- */
+type SaveResult = { error?: string; success?: boolean };
+
+/** Generic admin list with create / edit / delete, backed by real Server Actions. */
 export function AdminCrud({
   title,
   subtitle,
   newLabel,
   columns,
   rows,
-  form,
+  renderForm,
+  onSave,
+  onDelete,
   noun,
 }: {
   title: string;
@@ -31,21 +33,40 @@ export function AdminCrud({
   newLabel: string;
   columns: string[];
   rows: AdminRow[];
-  /** Form body shown in the create/edit modal. */
-  form: React.ReactNode;
+  /** Form fields for create (documentId null) or edit (documentId set). */
+  renderForm: (documentId: string | null) => React.ReactNode;
+  onSave: (documentId: string | null, formData: FormData) => Promise<SaveResult>;
+  onDelete: (documentId: string) => Promise<SaveResult>;
   /** Singular noun for toasts, e.g. "job". */
   noun: string;
 }) {
-  const [mode, setMode] = useState<null | { kind: "new" | "edit"; label?: string }>(
-    null,
+  const [editing, setEditing] = useState<null | { kind: "new" } | { kind: "edit"; id: string }>(null);
+  const formId = useId();
+  const [deleting, startDelete] = useTransition();
+
+  const [state, formAction, pending] = useActionState<SaveResult, FormData>(
+    async (_prev, formData) => onSave(editing?.kind === "edit" ? editing.id : null, formData),
+    {},
   );
 
-  function save() {
-    const kind = mode?.kind;
-    setMode(null);
-    toast.success(
-      kind === "new" ? `New ${noun} created.` : `${noun[0].toUpperCase()}${noun.slice(1)} updated.`,
-    );
+  useEffect(() => {
+    if (state.success) {
+      const wasNew = editing?.kind === "new";
+      setEditing(null);
+      toast.success(wasNew ? `New ${noun} created.` : `${noun[0].toUpperCase()}${noun.slice(1)} updated.`);
+    } else if (state.error) {
+      toast.error(state.error);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state]);
+
+  function handleDelete(row: AdminRow) {
+    if (!window.confirm(`Delete "${row.label}"? This can't be undone.`)) return;
+    startDelete(async () => {
+      const result = await onDelete(row.id);
+      if (result.error) toast.error(result.error);
+      else toast.success(`${noun[0].toUpperCase()}${noun.slice(1)} deleted.`);
+    });
   }
 
   return (
@@ -62,7 +83,7 @@ export function AdminCrud({
         <Button
           variant="inverse"
           iconLeft={<Plus size={18} />}
-          onClick={() => setMode({ kind: "new" })}
+          onClick={() => setEditing({ kind: "new" })}
         >
           {newLabel}
         </Button>
@@ -105,7 +126,7 @@ export function AdminCrud({
                       variant="ghost"
                       size="sm"
                       aria-label={`Edit ${noun}`}
-                      onClick={() => setMode({ kind: "edit", label: String(row.cells[0]) })}
+                      onClick={() => setEditing({ kind: "edit", id: row.id })}
                     >
                       <Pencil size={16} />
                     </IconButton>
@@ -113,7 +134,8 @@ export function AdminCrud({
                       variant="ghost"
                       size="sm"
                       aria-label={`Delete ${noun}`}
-                      onClick={() => toast.success(`${noun[0].toUpperCase()}${noun.slice(1)} deleted.`)}
+                      disabled={deleting}
+                      onClick={() => handleDelete(row)}
                     >
                       <Trash2 size={16} />
                     </IconButton>
@@ -126,21 +148,25 @@ export function AdminCrud({
       </Card>
 
       <Modal
-        open={mode !== null}
-        onClose={() => setMode(null)}
-        title={mode?.kind === "edit" ? `Edit ${noun}` : `${newLabel}`}
+        open={editing !== null}
+        onClose={() => setEditing(null)}
+        title={editing?.kind === "edit" ? `Edit ${noun}` : newLabel}
         footer={
           <>
-            <Button variant="outline" size="sm" onClick={() => setMode(null)}>
+            <Button variant="outline" size="sm" type="button" onClick={() => setEditing(null)}>
               Cancel
             </Button>
-            <Button variant="inverse" size="sm" onClick={save}>
-              {mode?.kind === "edit" ? "Save changes" : "Create"}
+            <Button variant="inverse" size="sm" type="submit" form={formId} disabled={pending}>
+              {pending ? "Saving…" : editing?.kind === "edit" ? "Save changes" : "Create"}
             </Button>
           </>
         }
       >
-        <div className="flex flex-col gap-4">{form}</div>
+        {editing && (
+          <form id={formId} action={formAction} className="flex flex-col gap-4">
+            {renderForm(editing.kind === "edit" ? editing.id : null)}
+          </form>
+        )}
       </Modal>
     </div>
   );

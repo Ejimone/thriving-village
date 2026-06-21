@@ -78,6 +78,7 @@ const ADMIN_ACTIONS = [
   'api::me.me.whoami',
   'api::admin-dashboard.admin-dashboard.stats',
   'api::admin-dashboard.admin-dashboard.activity',
+  'api::admin-dashboard.admin-dashboard.stream',
 ];
 
 const ROLE_ACTIONS: Record<string, string[]> = {

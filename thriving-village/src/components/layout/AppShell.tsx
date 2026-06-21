@@ -4,6 +4,7 @@ import { Avatar } from "@/components/ui/Avatar";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { SidebarNav, type NavItem } from "@/components/layout/SidebarNav";
+import { signOutAction } from "@/lib/actions/auth";
 
 /** Shared chrome for authenticated areas (dashboard + admin). */
 export function AppShell({
@@ -33,6 +34,11 @@ export function AppShell({
             <Button href="/" variant="text" size="sm">
               View site
             </Button>
+            <form action={signOutAction}>
+              <Button type="submit" variant="text" size="sm">
+                Sign out
+              </Button>
+            </form>
             <Avatar name={userName} size={36} />
           </div>
         </div>

@@ -1,5 +1,8 @@
 import { factories } from '@strapi/strapi';
 import { resolveSlugParam } from '../../../utils/scoped-find';
+import { slugify, uniqueSlug } from '../../../utils/slugify';
+import { cached, invalidateScope } from '../../../utils/cache';
+import { logActivity } from '../../../utils/activity';
 
 const prizePool = (prizes: any[] = []) => prizes.reduce((sum, p) => sum + Number(p.amount || 0), 0);
 const topPrize = (prizes: any[] = []) => prizes.reduce((max, p) => Math.max(max, Number(p.amount || 0)), 0);
@@ -21,9 +24,31 @@ const withComputed = (entity: any) => {
 };
 
 export default factories.createCoreController('api::contest.contest', ({ strapi }) => ({
+  async create(ctx) {
+    const body = ctx.request.body as any;
+    if (body?.data?.title && !body.data.slug) {
+      body.data.slug = await uniqueSlug(strapi, 'api::contest.contest', slugify(body.data.title));
+    }
+    const result = await super.create(ctx);
+    await invalidateScope('contests');
+    return result;
+  },
+
+  async update(ctx) {
+    const result = await super.update(ctx);
+    await invalidateScope('contests');
+    return result;
+  },
+
+  async delete(ctx) {
+    const result = await super.delete(ctx);
+    await invalidateScope('contests');
+    return result;
+  },
+
   async find(ctx) {
     ctx.query = { ...ctx.query, populate: ctx.query.populate || ['prizes'] };
-    const { data, meta } = await super.find(ctx);
+    const { data, meta } = await cached<{ data: any; meta: any }>('contests', JSON.stringify(ctx.query), 30, () => super.find(ctx));
     return { data: withComputed(data), meta };
   },
 
@@ -78,15 +103,9 @@ export default factories.createCoreController('api::contest.contest', ({ strapi 
       where: { id: contest.id },
       data: { entries: (contest.entries || 0) + 1 },
     });
+    await invalidateScope('contests'); // entries count changed — bypassed the controller's update()
 
-    await strapi.db.query('api::activity-log.activity-log').create({
-      data: {
-        who: name,
-        what: `entered ${contest.title}`,
-        kind: 'entry',
-        occurredAt: new Date(),
-      },
-    });
+    await logActivity(strapi, { who: name, what: `entered ${contest.title}`, kind: 'entry' });
 
     ctx.body = { data: entry };
   },

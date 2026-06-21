@@ -3,7 +3,7 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   // Pin the workspace root so Next doesn't pick a parent-dir lockfile.
   turbopack: {
-    root: "/Users/grantejimone/ThrivingVillageDesktop/thriving-village",
+    root: process.cwd(),
   },
   images: {
     // Grayscale placeholder photography used across the skin.

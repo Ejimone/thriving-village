@@ -1,14 +1,7 @@
 import { notFound } from "next/navigation";
 import { LessonViewer } from "@/components/course/LessonViewer";
-import { getCourse, COURSES } from "@/lib/data";
-
-export function generateStaticParams() {
-  return COURSES.flatMap((c) =>
-    c.modules.flatMap((m) =>
-      m.lessons.map((l) => ({ id: c.id, lessonId: l.id })),
-    ),
-  );
-}
+import { getCourse, getCourseLessonProgress } from "@/lib/data";
+import { getSession } from "@/lib/session";
 
 export default async function LessonPage({
   params,
@@ -16,8 +9,11 @@ export default async function LessonPage({
   params: Promise<{ id: string; lessonId: string }>;
 }) {
   const { id, lessonId } = await params;
-  const course = getCourse(id);
+  const course = await getCourse(id);
   if (!course) notFound();
 
-  return <LessonViewer course={course} lessonId={lessonId} />;
+  const session = await getSession();
+  const completed = session ? await getCourseLessonProgress(session.jwt, course.dbId) : new Set<string>();
+
+  return <LessonViewer course={course} lessonId={lessonId} initialCompleted={[...completed]} />;
 }

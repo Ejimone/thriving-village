@@ -23,6 +23,19 @@ export function FileUpload({ label, hint, accept, name, onFileSelect }: Props) {
     onFileSelect?.(file);
   }
 
+  function handleDrop(file: File | null) {
+    // Drag-and-drop bypasses the native <input>, so its `.files` (and thus
+    // FormData on submit) wouldn't include the dropped file unless we assign
+    // it via DataTransfer — this keeps drag-and-drop participating in the
+    // same native form submission as a click-to-browse selection.
+    if (inputRef.current && file) {
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      inputRef.current.files = dt.files;
+    }
+    handleFile(file);
+  }
+
   return (
     <div className="flex flex-col gap-1.5 font-sans w-full">
       {label && (
@@ -41,7 +54,7 @@ export function FileUpload({ label, hint, accept, name, onFileSelect }: Props) {
         onDrop={(e) => {
           e.preventDefault();
           setDragging(false);
-          handleFile(e.dataTransfer.files?.[0] ?? null);
+          handleDrop(e.dataTransfer.files?.[0] ?? null);
         }}
         className={cn(
           "flex flex-col items-center justify-center gap-2 rounded-sm border-[1.5px] border-dashed px-6 py-8 text-center cursor-pointer transition-colors duration-150",
@@ -69,6 +82,7 @@ export function FileUpload({ label, hint, accept, name, onFileSelect }: Props) {
       <input
         ref={inputRef}
         type="file"
+        name={name}
         accept={accept}
         className="hidden"
         onChange={(e) => handleFile(e.target.files?.[0] ?? null)}

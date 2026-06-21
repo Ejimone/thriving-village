@@ -4,11 +4,7 @@ import { ArrowLeft, Check } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { ProductPurchase } from "@/components/shop/ProductPurchase";
 import { ProductCard } from "@/components/cards/ProductCard";
-import { getProduct, PRODUCTS, naira, photo } from "@/lib/data";
-
-export function generateStaticParams() {
-  return PRODUCTS.map((p) => ({ id: p.id }));
-}
+import { getProduct, getProducts, naira, photo } from "@/lib/data";
 
 export default async function ProductDetailPage({
   params,
@@ -16,10 +12,11 @@ export default async function ProductDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const product = getProduct(id);
+  const product = await getProduct(id);
   if (!product) notFound();
 
-  const more = PRODUCTS.filter((p) => p.id !== product.id).slice(0, 3);
+  const { items: candidates } = await getProducts({ pageSize: 4 });
+  const more = candidates.filter((p) => p.id !== product.id).slice(0, 3);
 
   return (
     <div className="tv-container pt-10 pb-4">

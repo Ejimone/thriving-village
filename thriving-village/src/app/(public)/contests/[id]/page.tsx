@@ -5,27 +5,10 @@ import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { Avatar } from "@/components/ui/Avatar";
 import { ApplyDialog } from "@/components/cards/ApplyDialog";
-import {
-  getContest,
-  CONTESTS,
-  naira,
-  photo,
-  prizePool,
-  winnerCount,
-} from "@/lib/data";
+import { getContest, getLeaderboard, naira, photo, prizePool, winnerCount } from "@/lib/data";
+import { enterContestAction } from "@/lib/actions/applications";
 
 const CONTEST_ACCENT = "var(--tv-accent-orange)";
-
-const LEADERBOARD = [
-  { name: "Amara Eze", note: "Entry #84", rank: 1 },
-  { name: "Chidi Nwosu", note: "Entry #61", rank: 2 },
-  { name: "Ngozi Bello", note: "Entry #43", rank: 3 },
-  { name: "Yusuf Ali", note: "Entry #28", rank: 4 },
-];
-
-export function generateStaticParams() {
-  return CONTESTS.map((c) => ({ id: c.id }));
-}
 
 export default async function ContestDetailPage({
   params,
@@ -33,10 +16,11 @@ export default async function ContestDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const contest = getContest(id);
+  const contest = await getContest(id);
   if (!contest) notFound();
 
   const live = contest.status === "live";
+  const leaderboard = await getLeaderboard(id);
 
   // Prize tiers ordered top-first.
   const prizes = [...contest.prizes].sort((a, b) => a.place - b.place);
@@ -50,10 +34,6 @@ export default async function ContestDetailPage({
       value: live ? `${contest.daysLeft} days` : "Ended",
     },
   ];
-
-  // Map leaderboard ranks to prize tiers so winners show what they take home.
-  const prizeForRank = (rank: number) =>
-    prizes.find((p) => p.place === rank);
 
   return (
     <div className="tv-container pt-10 pb-4">
@@ -145,7 +125,7 @@ export default async function ContestDetailPage({
             ))}
           </ul>
 
-          {/* Leaderboard placeholder */}
+          {/* Leaderboard */}
           <h2 className="mt-10 text-xl font-bold text-black [letter-spacing:var(--tv-track-tight)]">
             Leaderboard
           </h2>
@@ -154,10 +134,9 @@ export default async function ContestDetailPage({
               ? "Ranking is provisional until judging closes."
               : "Final results."}
           </p>
-          <Card variant="flat" className="mt-3 divide-y divide-gray-200 !p-0">
-            {LEADERBOARD.map((e) => {
-              const won = prizeForRank(e.rank);
-              return (
+          {leaderboard.length > 0 ? (
+            <Card variant="flat" className="mt-3 divide-y divide-gray-200 !p-0">
+              {leaderboard.map((e) => (
                 <div key={e.rank} className="flex items-center gap-4 px-5 py-4">
                   <span className="w-6 text-center text-lg font-bold text-gray-400 tabular-nums">
                     {e.rank}
@@ -166,7 +145,7 @@ export default async function ContestDetailPage({
                   <div className="flex-1">
                     <p className="flex items-center gap-2 text-[15px] font-semibold text-black [letter-spacing:var(--tv-track-tight)]">
                       {e.name}
-                      {won && (
+                      {e.prize && (
                         <Badge tone="accent" accent={CONTEST_ACCENT} size="sm">
                           Winner
                         </Badge>
@@ -174,16 +153,20 @@ export default async function ContestDetailPage({
                     </p>
                     <p className="text-[13px] text-gray-500">{e.note}</p>
                   </div>
-                  {won ? (
+                  {e.prize ? (
                     <span className="flex items-center gap-1.5 text-[15px] font-semibold text-black [letter-spacing:var(--tv-track-tight)]">
                       <Trophy size={16} style={{ color: CONTEST_ACCENT }} />
-                      {naira(won.amount)}
+                      {naira(e.prize.amount)}
                     </span>
                   ) : null}
                 </div>
-              );
-            })}
-          </Card>
+              ))}
+            </Card>
+          ) : (
+            <p className="mt-3 text-[15px] text-gray-500 [letter-spacing:var(--tv-track-tight)]">
+              Ranking hasn&apos;t been published yet.
+            </p>
+          )}
         </div>
 
         {/* Submission rail */}
@@ -209,9 +192,12 @@ export default async function ContestDetailPage({
                 title={`Enter — ${contest.title}`}
                 subtitle={`${winnerCount(contest)} winners · ${naira(prizePool(contest))} pool`}
                 promptLabel="Describe your entry"
+                promptName="description"
+                promptRequired
                 withFile
                 fileHint="Upload your work — image, PDF, or zip"
                 successMessage="Entry submitted. Good luck!"
+                action={enterContestAction.bind(null, contest.id)}
               />
             ) : (
               <div className="rounded-sm bg-gray-100 px-4 py-3 text-center text-sm text-gray-600 [letter-spacing:var(--tv-track-tight)]">

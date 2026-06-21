@@ -7,10 +7,10 @@ import { JobCard } from "@/components/cards/JobCard";
 import { ContestCard } from "@/components/cards/ContestCard";
 import { BrandCard } from "@/components/cards/BrandCard";
 import {
-  JOBS,
-  CONTESTS,
-  BRANDS,
-  TESTIMONIALS,
+  getJobs,
+  getContests,
+  getBrands,
+  getTestimonials,
   WHATSAPP_URL,
   photo,
 } from "@/lib/data";
@@ -39,10 +39,14 @@ const PATHS = [
   },
 ];
 
-export default function HomePage() {
-  const featuredJobs = JOBS.slice(0, 3);
-  const liveContests = CONTESTS.filter((c) => c.status === "live").slice(0, 3);
-  const featuredBrands = BRANDS.filter((b) => b.featured).slice(0, 3);
+export default async function HomePage() {
+  const [{ items: featuredJobs }, { items: liveContests }, featuredBrands, testimonials] =
+    await Promise.all([
+      getJobs({ pageSize: 3 }),
+      getContests({ status: "live", pageSize: 3 }),
+      getBrands({ featured: true }),
+      getTestimonials(),
+    ]);
 
   return (
     <div>
@@ -189,8 +193,8 @@ export default function HomePage() {
           Real work, real people
         </h2>
         <div className="grid gap-5 md:grid-cols-3">
-          {TESTIMONIALS.map((t) => (
-            <Card key={t.name} className="flex flex-col gap-4">
+          {testimonials.slice(0, 3).map((t, i) => (
+            <Card key={`${t.name}-${i}`} className="flex flex-col gap-4">
               <Quote size={22} className="text-gray-300" />
               <p className="font-serif flex-1 text-[17px] leading-relaxed text-gray-800">
                 {t.quote}
@@ -222,7 +226,7 @@ export default function HomePage() {
           </Button>
         </div>
         <div className="grid gap-5 md:grid-cols-3">
-          {featuredBrands.map((b) => (
+          {featuredBrands.slice(0, 3).map((b) => (
             <BrandCard key={b.id} brand={b} featured />
           ))}
         </div>

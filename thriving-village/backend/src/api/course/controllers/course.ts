@@ -1,5 +1,8 @@
 import { factories } from '@strapi/strapi';
 import { resolveSlugParam } from '../../../utils/scoped-find';
+import { slugify, uniqueSlug } from '../../../utils/slugify';
+import { cached, invalidateScope } from '../../../utils/cache';
+import { logActivity } from '../../../utils/activity';
 
 const lessonCount = (modules: any[] = []) =>
   modules.reduce((n, m) => n + (m.lessons?.length || 0), 0);
@@ -11,10 +14,42 @@ const withComputed = (entity: any) => {
 };
 
 export default factories.createCoreController('api::course.course', ({ strapi }) => ({
+  async create(ctx) {
+    const body = ctx.request.body as any;
+    if (body?.data?.title && !body.data.slug) {
+      body.data.slug = await uniqueSlug(strapi, 'api::course.course', slugify(body.data.title));
+    }
+    const result = await super.create(ctx);
+    await invalidateScope('courses');
+    return result;
+  },
+
+  async update(ctx) {
+    const result = await super.update(ctx);
+    await invalidateScope('courses');
+    return result;
+  },
+
+  async delete(ctx) {
+    const result = await super.delete(ctx);
+    await invalidateScope('courses');
+    return result;
+  },
+
   async find(ctx) {
-    // list view: never populate modules (heaviest payload), only computed lessonCount
-    const { data, meta } = await super.find(ctx);
-    return { data, meta };
+    // list view: populate only lesson `id`s (never titles/durations/etc — the heavy part)
+    // so lessonCount can be computed without paying for the full curriculum payload.
+    ctx.query = {
+      ...ctx.query,
+      populate: ctx.query.populate || { modules: { populate: { lessons: { fields: ['id'] } } } },
+    };
+    const { data, meta } = await cached<{ data: any; meta: any }>('courses', JSON.stringify(ctx.query), 30, () => super.find(ctx));
+    const withCount = withComputed(data);
+    // Strip the populated modules back out — list responses should carry lessonCount, not the curriculum itself.
+    const stripped = Array.isArray(withCount)
+      ? withCount.map(({ modules, ...rest }: any) => rest)
+      : withCount;
+    return { data: stripped, meta };
   },
 
   async findOne(ctx) {
@@ -45,14 +80,7 @@ export default factories.createCoreController('api::course.course', ({ strapi })
       data: { course: course.id, user: user.id, name, whatsapp, message },
     });
 
-    await strapi.db.query('api::activity-log.activity-log').create({
-      data: {
-        who: name,
-        what: `enrolled in ${course.title}`,
-        kind: 'enrollment',
-        occurredAt: new Date(),
-      },
-    });
+    await logActivity(strapi, { who: name, what: `enrolled in ${course.title}`, kind: 'enrollment' });
 
     ctx.body = { data: enrollment };
   },

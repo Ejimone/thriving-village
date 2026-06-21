@@ -1,25 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useActionState } from "react";
 import { MessageCircle } from "lucide-react";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
-import { toast } from "@/components/ui/Toaster";
 import { WHATSAPP_URL } from "@/lib/data";
+import { signInAction, type AuthResult } from "@/lib/actions/auth";
 
 export default function SignInPage() {
-  const [loading, setLoading] = useState(false);
-
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    // Placeholder — no real auth in this skin.
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      toast.info("Auth is wired up by the dev team. This is a UI placeholder.");
-    }, 600);
-  }
+  const [state, formAction, pending] = useActionState<AuthResult, FormData>(
+    (_prev, formData) => signInAction(formData),
+    {},
+  );
 
   return (
     <div>
@@ -30,9 +23,12 @@ export default function SignInPage() {
         Sign in to pick up where you left off.
       </p>
 
-      <form onSubmit={handleSubmit} className="mt-7 flex flex-col gap-4">
-        <Input label="Email" type="email" placeholder="you@example.com" required />
-        <Input label="Password" type="password" placeholder="••••••••" required />
+      <form action={formAction} className="mt-7 flex flex-col gap-4">
+        <Input name="email" label="Email" type="email" placeholder="you@example.com" required />
+        <Input name="password" label="Password" type="password" placeholder="••••••••" required />
+        {state.error && (
+          <p className="text-[13px] text-error [letter-spacing:var(--tv-track-tight)]">{state.error}</p>
+        )}
         <div className="flex justify-end -mt-1">
           <Link
             href="#"
@@ -41,8 +37,8 @@ export default function SignInPage() {
             Forgot password?
           </Link>
         </div>
-        <Button type="submit" variant="inverse" size="lg" fullWidth disabled={loading}>
-          {loading ? "Signing in…" : "Sign in"}
+        <Button type="submit" variant="inverse" size="lg" fullWidth disabled={pending}>
+          {pending ? "Signing in…" : "Sign in"}
         </Button>
       </form>
 

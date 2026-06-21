@@ -15,11 +15,8 @@ import { Card } from "@/components/ui/Card";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { ApplyDialog } from "@/components/cards/ApplyDialog";
-import { getCourse, COURSES, naira } from "@/lib/data";
-
-export function generateStaticParams() {
-  return COURSES.map((c) => ({ id: c.id }));
-}
+import { getCourse, naira } from "@/lib/data";
+import { enrollInCourseAction } from "@/lib/actions/applications";
 
 export default async function CourseDetailPage({
   params,
@@ -27,7 +24,7 @@ export default async function CourseDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const course = getCourse(id);
+  const course = await getCourse(id);
   if (!course) notFound();
 
   const firstLesson = course.modules[0]?.lessons[0];
@@ -179,6 +176,7 @@ export default async function CourseDetailPage({
               subtitle={`${naira(course.price)} · lifetime access`}
               promptLabel="Anything you'd like us to know? (optional)"
               successMessage="You're enrolled. Start learning anytime."
+              action={enrollInCourseAction.bind(null, course.id)}
             />
             {firstLesson && (
               <Button

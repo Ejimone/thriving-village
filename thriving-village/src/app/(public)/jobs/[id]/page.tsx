@@ -12,11 +12,8 @@ import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { Avatar } from "@/components/ui/Avatar";
 import { ApplyDialog } from "@/components/cards/ApplyDialog";
-import { getJob, JOBS } from "@/lib/data";
-
-export function generateStaticParams() {
-  return JOBS.map((j) => ({ id: j.id }));
-}
+import { getJob } from "@/lib/data";
+import { applyToJobAction } from "@/lib/actions/applications";
 
 export default async function JobDetailPage({
   params,
@@ -24,7 +21,7 @@ export default async function JobDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const job = getJob(id);
+  const job = await getJob(id);
   if (!job) notFound();
 
   const meta = [
@@ -110,6 +107,7 @@ export default async function JobDetailPage({
               withFile
               fileHint="Attach your CV — PDF or image"
               successMessage="Application sent. We'll be in touch on WhatsApp."
+              action={applyToJobAction.bind(null, job.id)}
             />
             <p className="text-center text-[13px] text-gray-500 [letter-spacing:var(--tv-track-tight)]">
               Updates come through WhatsApp.

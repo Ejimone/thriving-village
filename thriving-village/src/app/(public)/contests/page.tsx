@@ -1,13 +1,15 @@
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { ContestCard } from "@/components/cards/ContestCard";
-import { CONTESTS } from "@/lib/data";
+import { getContests } from "@/lib/data";
 
 const CONTEST_ACCENT = "var(--tv-accent-orange)";
 
-export default function ContestsPage() {
-  const live = CONTESTS.filter((c) => c.status === "live");
-  const past = CONTESTS.filter((c) => c.status === "past");
+export default async function ContestsPage() {
+  const [{ items: live }, { items: past }] = await Promise.all([
+    getContests({ status: "live", pageSize: 6 }),
+    getContests({ status: "past", pageSize: 6 }),
+  ]);
 
   return (
     <div>
