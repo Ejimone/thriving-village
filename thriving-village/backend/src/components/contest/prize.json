@@ -1,0 +1,23 @@
+{
+  "collectionName": "components_contest_prizes",
+  "info": {
+    "displayName": "Prize",
+    "icon": "money"
+  },
+  "options": {},
+  "attributes": {
+    "place": {
+      "type": "integer",
+      "required": true,
+      "min": 1
+    },
+    "label": {
+      "type": "string",
+      "required": true
+    },
+    "amount": {
+      "type": "decimal",
+      "required": true
+    }
+  }
+}

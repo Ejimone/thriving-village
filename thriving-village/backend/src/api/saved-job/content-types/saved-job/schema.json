@@ -1,0 +1,26 @@
+{
+  "kind": "collectionType",
+  "collectionName": "saved_jobs",
+  "info": {
+    "singularName": "saved-job",
+    "pluralName": "saved-jobs",
+    "displayName": "Saved Job"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "job": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::job.job",
+      "inversedBy": "savedBy"
+    },
+    "user": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::users-permissions.user"
+    }
+  }
+}

@@ -1,0 +1,60 @@
+{
+  "kind": "collectionType",
+  "collectionName": "contests",
+  "info": {
+    "singularName": "contest",
+    "pluralName": "contests",
+    "displayName": "Contest"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "title": {
+      "type": "string",
+      "required": true
+    },
+    "slug": {
+      "type": "uid",
+      "targetField": "title",
+      "required": true
+    },
+    "field": {
+      "type": "enumeration",
+      "enum": ["Digital", "Technical", "Craft", "Creative"],
+      "required": true
+    },
+    "brief": {
+      "type": "text",
+      "required": true
+    },
+    "rules": {
+      "type": "json",
+      "required": true
+    },
+    "deadline": {
+      "type": "datetime",
+      "required": true
+    },
+    "status": {
+      "type": "enumeration",
+      "enum": ["live", "past"],
+      "default": "live",
+      "required": true
+    },
+    "entries": {
+      "type": "integer",
+      "default": 0,
+      "required": true
+    },
+    "prizes": {
+      "type": "component",
+      "repeatable": true,
+      "component": "contest.prize"
+    },
+    "seed": {
+      "type": "string"
+    }
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "collectionName": "components_course_modules",
+  "info": {
+    "displayName": "Module",
+    "icon": "stack"
+  },
+  "options": {},
+  "attributes": {
+    "title": {
+      "type": "string",
+      "required": true
+    },
+    "lessons": {
+      "type": "component",
+      "repeatable": true,
+      "component": "course.lesson"
+    }
+  }
+}

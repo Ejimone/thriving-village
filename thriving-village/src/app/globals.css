@@ -1,0 +1,201 @@
+@import "tailwindcss";
+
+/* ============================================================
+   Thriving Village — Design System
+   Tokens transcribed from the Claude Design handoff bundle.
+   Neutrals carry almost everything. Accents are rare and never
+   mixed: at most one accent per page.
+   ============================================================ */
+
+:root {
+  /* ---- Neutrals (the workhorse palette) ---- */
+  --tv-black: #0a0a0a;
+  --tv-ink: #141414;
+  --tv-white: #ffffff;
+  --tv-paper: #fafaf8;
+  --tv-gray-950: #111111;
+  --tv-gray-900: #1c1c1c;
+  --tv-gray-800: #2b2b2b;
+  --tv-gray-700: #404040;
+  --tv-gray-600: #5c5c5c;
+  --tv-gray-500: #7a7a7a;
+  --tv-gray-400: #a0a0a0;
+  --tv-gray-300: #c7c7c7;
+  --tv-gray-200: #e2e2df;
+  --tv-gray-150: #ebebe8;
+  --tv-gray-100: #f2f2ef;
+  --tv-gray-50: #f8f8f6;
+
+  /* ---- Primary accent (reserve token, rare hero CTA only) ---- */
+  --tv-primary: #0b1ec6;
+  --tv-primary-hover: #0917a4;
+  --tv-primary-press: #070f7d;
+
+  /* ---- Team / project accents (one per page, never mixed) ---- */
+  --tv-accent-blue: #0084f8;
+  --tv-accent-orange: #ff5708;
+  --tv-accent-green: #09fe02;
+  --tv-accent-yellow: #fdfe01;
+  --tv-accent-magenta: #ff23fc;
+
+  /* ---- Functional status ---- */
+  --tv-success: #09a340;
+  --tv-error: #e11900;
+  --tv-warning: #ff5708;
+
+  /* ---- Tracking (signature tight sans) ---- */
+  --tv-track-tight: -0.03em;
+  --tv-track-tighter: -0.05em;
+
+  /* ---- Radii ---- */
+  --tv-radius-pill: 9999px;
+  --tv-radius-card: 20px;
+  --tv-radius-sm: 12px;
+  --tv-radius-lg: 28px;
+
+  /* ---- Shadows (restrained, neutral, never colored) ---- */
+  --tv-shadow-sm: 0 1px 2px rgba(10, 10, 10, 0.06);
+  --tv-shadow-md: 0 6px 20px rgba(10, 10, 10, 0.08);
+  --tv-shadow-lg: 0 18px 48px rgba(10, 10, 10, 0.12);
+
+  /* ---- Layout ---- */
+  --tv-container: 1200px;
+
+  /* ---- Semantic aliases ---- */
+  --surface-page: var(--tv-paper);
+  --surface-card: var(--tv-white);
+  --surface-inverse: var(--tv-black);
+  --surface-subtle: var(--tv-gray-100);
+  --text-strong: var(--tv-black);
+  --text-body: var(--tv-gray-800);
+  --text-muted: var(--tv-gray-500);
+  --text-inverse: var(--tv-white);
+  --line-hairline: var(--tv-gray-200);
+}
+
+/* ---- Map tokens into the Tailwind v4 theme so utilities work ---- */
+@theme inline {
+  --font-sans: var(--font-instrument-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-libre-baskerville), Georgia, "Times New Roman", serif;
+
+  --color-black: var(--tv-black);
+  --color-ink: var(--tv-ink);
+  --color-white: var(--tv-white);
+  --color-paper: var(--tv-paper);
+  --color-gray-950: var(--tv-gray-950);
+  --color-gray-900: var(--tv-gray-900);
+  --color-gray-800: var(--tv-gray-800);
+  --color-gray-700: var(--tv-gray-700);
+  --color-gray-600: var(--tv-gray-600);
+  --color-gray-500: var(--tv-gray-500);
+  --color-gray-400: var(--tv-gray-400);
+  --color-gray-300: var(--tv-gray-300);
+  --color-gray-200: var(--tv-gray-200);
+  --color-gray-150: var(--tv-gray-150);
+  --color-gray-100: var(--tv-gray-100);
+  --color-gray-50: var(--tv-gray-50);
+
+  --color-primary: var(--tv-primary);
+  --color-accent-blue: var(--tv-accent-blue);
+  --color-accent-orange: var(--tv-accent-orange);
+  --color-accent-green: var(--tv-accent-green);
+  --color-accent-yellow: var(--tv-accent-yellow);
+  --color-accent-magenta: var(--tv-accent-magenta);
+  --color-success: var(--tv-success);
+  --color-error: var(--tv-error);
+  --color-warning: var(--tv-warning);
+
+  --radius-pill: var(--tv-radius-pill);
+  --radius-card: var(--tv-radius-card);
+  --radius-sm: var(--tv-radius-sm);
+  --radius-lg: var(--tv-radius-lg);
+
+  --shadow-sm: var(--tv-shadow-sm);
+  --shadow-md: var(--tv-shadow-md);
+  --shadow-lg: var(--tv-shadow-lg);
+
+  --tracking-tight: var(--tv-track-tight);
+  --tracking-tighter: var(--tv-track-tighter);
+
+  --container-site: var(--tv-container);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--surface-page);
+  color: var(--text-strong);
+  font-family: var(--font-sans);
+  letter-spacing: var(--tv-track-tight);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* The serif sits at tracking 0 — editorial only */
+.font-serif {
+  letter-spacing: 0;
+}
+
+::selection {
+  background: var(--tv-black);
+  color: var(--tv-white);
+}
+
+/* Photographic imagery is black & white per the brand */
+.tv-photo {
+  filter: grayscale(1) contrast(1.05);
+}
+
+/* Site container helper */
+.tv-container {
+  max-width: var(--tv-container);
+  margin-inline: auto;
+  padding-inline: 28px;
+  width: 100%;
+}
+
+/* Focus ring — neutral, accessible */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--tv-black);
+  outline-offset: 2px;
+}
+
+/* Loading skeleton shimmer */
+@keyframes tv-shimmer {
+  0% {
+    background-position: -400px 0;
+  }
+  100% {
+    background-position: 400px 0;
+  }
+}
+
+.tv-skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--tv-gray-150) 25%,
+    var(--tv-gray-100) 37%,
+    var(--tv-gray-150) 63%
+  );
+  background-size: 800px 100%;
+  animation: tv-shimmer 1.4s ease-in-out infinite;
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

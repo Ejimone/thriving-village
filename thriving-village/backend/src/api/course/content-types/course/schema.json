@@ -1,0 +1,79 @@
+{
+  "kind": "collectionType",
+  "collectionName": "courses",
+  "info": {
+    "singularName": "course",
+    "pluralName": "courses",
+    "displayName": "Course"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "title": {
+      "type": "string",
+      "required": true
+    },
+    "slug": {
+      "type": "uid",
+      "targetField": "title",
+      "required": true
+    },
+    "field": {
+      "type": "enumeration",
+      "enum": ["Digital", "Technical", "Craft", "Creative"],
+      "required": true
+    },
+    "level": {
+      "type": "enumeration",
+      "enum": ["Entry", "Mid", "Senior"],
+      "required": true
+    },
+    "kind": {
+      "type": "enumeration",
+      "enum": ["Course", "Certification"],
+      "required": true
+    },
+    "delivery": {
+      "type": "enumeration",
+      "enum": ["Online", "Onsite", "Hybrid"],
+      "required": true
+    },
+    "location": {
+      "type": "string"
+    },
+    "instructor": {
+      "type": "string",
+      "required": true
+    },
+    "instructorRole": {
+      "type": "string",
+      "required": true
+    },
+    "price": {
+      "type": "decimal",
+      "required": true
+    },
+    "weeks": {
+      "type": "integer",
+      "required": true
+    },
+    "blurb": {
+      "type": "text",
+      "required": true
+    },
+    "outcomes": {
+      "type": "json",
+      "required": true
+    },
+    "modules": {
+      "type": "component",
+      "repeatable": true,
+      "component": "course.module"
+    },
+    "seed": {
+      "type": "string"
+    }
+  }
+}

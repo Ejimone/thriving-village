@@ -1,0 +1,51 @@
+{
+  "kind": "collectionType",
+  "collectionName": "contest_entries",
+  "info": {
+    "singularName": "contest-entry",
+    "pluralName": "contest-entries",
+    "displayName": "Contest Entry"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "contest": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::contest.contest"
+    },
+    "user": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::users-permissions.user"
+    },
+    "name": {
+      "type": "string",
+      "required": true
+    },
+    "whatsapp": {
+      "type": "string",
+      "required": true
+    },
+    "description": {
+      "type": "text",
+      "required": true
+    },
+    "work": {
+      "type": "media",
+      "multiple": false,
+      "allowedTypes": ["files", "images"]
+    },
+    "status": {
+      "type": "enumeration",
+      "enum": ["Submitted", "Shortlisted", "Won", "Not selected"],
+      "default": "Submitted",
+      "required": true
+    },
+    "rank": {
+      "type": "integer"
+    }
+  }
+}

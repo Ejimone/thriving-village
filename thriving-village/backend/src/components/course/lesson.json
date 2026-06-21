@@ -1,0 +1,26 @@
+{
+  "collectionName": "components_course_lessons",
+  "info": {
+    "displayName": "Lesson",
+    "icon": "play"
+  },
+  "options": {},
+  "attributes": {
+    "key": {
+      "type": "string",
+      "required": true
+    },
+    "title": {
+      "type": "string",
+      "required": true
+    },
+    "duration": {
+      "type": "string",
+      "required": true
+    },
+    "free": {
+      "type": "boolean",
+      "default": false
+    }
+  }
+}

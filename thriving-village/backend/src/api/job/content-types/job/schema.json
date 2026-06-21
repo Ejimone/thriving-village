@@ -1,0 +1,91 @@
+{
+  "kind": "collectionType",
+  "collectionName": "jobs",
+  "info": {
+    "singularName": "job",
+    "pluralName": "jobs",
+    "displayName": "Job",
+    "description": "A job listing on the board"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "title": {
+      "type": "string",
+      "required": true
+    },
+    "slug": {
+      "type": "uid",
+      "targetField": "title",
+      "required": true
+    },
+    "org": {
+      "type": "string",
+      "required": true
+    },
+    "orgKind": {
+      "type": "string",
+      "required": true
+    },
+    "field": {
+      "type": "enumeration",
+      "enum": ["Digital", "Technical", "Craft", "Creative"],
+      "required": true
+    },
+    "location": {
+      "type": "string",
+      "required": true
+    },
+    "locationType": {
+      "type": "enumeration",
+      "enum": ["Remote", "Onsite", "Hybrid"],
+      "required": true
+    },
+    "type": {
+      "type": "enumeration",
+      "enum": ["Full-time", "Part-time", "Contract"],
+      "required": true
+    },
+    "level": {
+      "type": "enumeration",
+      "enum": ["Entry", "Mid", "Senior"],
+      "required": true
+    },
+    "pay": {
+      "type": "string",
+      "required": true
+    },
+    "summary": {
+      "type": "text",
+      "required": true
+    },
+    "responsibilities": {
+      "type": "json",
+      "required": true
+    },
+    "requirements": {
+      "type": "json",
+      "required": true
+    },
+    "status": {
+      "type": "enumeration",
+      "enum": ["draft", "published", "closed"],
+      "default": "published",
+      "required": true
+    },
+    "applications": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::job-application.job-application",
+      "mappedBy": "job"
+    },
+    "savedBy": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::saved-job.saved-job",
+      "mappedBy": "job"
+    }
+  }
+}

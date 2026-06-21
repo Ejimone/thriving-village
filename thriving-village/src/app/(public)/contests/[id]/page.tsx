@@ -1,0 +1,229 @@
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { ArrowLeft, Trophy, Users, CalendarClock, Check } from "lucide-react";
+import { Badge } from "@/components/ui/Badge";
+import { Card } from "@/components/ui/Card";
+import { Avatar } from "@/components/ui/Avatar";
+import { ApplyDialog } from "@/components/cards/ApplyDialog";
+import {
+  getContest,
+  CONTESTS,
+  naira,
+  photo,
+  prizePool,
+  winnerCount,
+} from "@/lib/data";
+
+const CONTEST_ACCENT = "var(--tv-accent-orange)";
+
+const LEADERBOARD = [
+  { name: "Amara Eze", note: "Entry #84", rank: 1 },
+  { name: "Chidi Nwosu", note: "Entry #61", rank: 2 },
+  { name: "Ngozi Bello", note: "Entry #43", rank: 3 },
+  { name: "Yusuf Ali", note: "Entry #28", rank: 4 },
+];
+
+export function generateStaticParams() {
+  return CONTESTS.map((c) => ({ id: c.id }));
+}
+
+export default async function ContestDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  const contest = getContest(id);
+  if (!contest) notFound();
+
+  const live = contest.status === "live";
+
+  // Prize tiers ordered top-first.
+  const prizes = [...contest.prizes].sort((a, b) => a.place - b.place);
+
+  const stats = [
+    { icon: <Trophy size={16} />, label: "Prize pool", value: naira(prizePool(contest)) },
+    { icon: <Users size={16} />, label: "Entries", value: String(contest.entries) },
+    {
+      icon: <CalendarClock size={16} />,
+      label: live ? "Closes in" : "Status",
+      value: live ? `${contest.daysLeft} days` : "Ended",
+    },
+  ];
+
+  // Map leaderboard ranks to prize tiers so winners show what they take home.
+  const prizeForRank = (rank: number) =>
+    prizes.find((p) => p.place === rank);
+
+  return (
+    <div className="tv-container pt-10 pb-4">
+      <Link
+        href="/contests"
+        className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-500 hover:text-black [letter-spacing:var(--tv-track-tight)]"
+      >
+        <ArrowLeft size={16} /> All contests
+      </Link>
+
+      {/* Banner */}
+      <div className="relative mt-6 h-[240px] overflow-hidden rounded-card bg-gray-900">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={photo(contest.seed, 1200, 480)}
+          alt=""
+          className="h-full w-full object-cover tv-photo"
+        />
+        <div className="absolute inset-0 bg-[linear-gradient(to_top,rgba(10,10,10,0.65),transparent_60%)]" />
+        <span className="absolute left-5 top-5">
+          {live ? (
+            <Badge tone="accent" accent={CONTEST_ACCENT} size="md">
+              {contest.daysLeft} days left
+            </Badge>
+          ) : (
+            <Badge tone="inverse" size="md">
+              Ended
+            </Badge>
+          )}
+        </span>
+      </div>
+
+      <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_320px]">
+        {/* Main */}
+        <div>
+          <Badge tone="neutral" size="md">
+            {contest.field}
+          </Badge>
+          <h1 className="mt-4 text-[clamp(30px,5vw,44px)] font-bold leading-[1.05] text-black [letter-spacing:var(--tv-track-tighter)]">
+            {contest.title}
+          </h1>
+
+          <h2 className="mt-8 text-xl font-bold text-black [letter-spacing:var(--tv-track-tight)]">
+            The brief
+          </h2>
+          <p className="mt-3 max-w-[640px] text-[17px] leading-relaxed text-gray-700 [letter-spacing:var(--tv-track-tight)]">
+            {contest.brief}
+          </p>
+
+          {/* Prize breakdown — flexible per campaign (one or more winners) */}
+          <h2 className="mt-8 text-xl font-bold text-black [letter-spacing:var(--tv-track-tight)]">
+            Prizes
+          </h2>
+          <p className="mt-1 text-sm text-gray-500 [letter-spacing:var(--tv-track-tight)]">
+            {winnerCount(contest)} {winnerCount(contest) === 1 ? "winner" : "winners"} ·{" "}
+            {naira(prizePool(contest))} total
+          </p>
+          <div className="mt-3 grid gap-3 sm:grid-cols-3">
+            {prizes.map((p, i) => (
+              <Card
+                key={p.place}
+                variant={i === 0 ? "default" : "flat"}
+                className="flex flex-col gap-1"
+                style={i === 0 ? { borderColor: CONTEST_ACCENT } : undefined}
+              >
+                <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-[0.05em] text-gray-500">
+                  {i === 0 && <Trophy size={13} style={{ color: CONTEST_ACCENT }} />}
+                  {p.label}
+                </span>
+                <span className="text-[22px] font-bold text-black [letter-spacing:var(--tv-track-tight)]">
+                  {naira(p.amount)}
+                </span>
+              </Card>
+            ))}
+          </div>
+
+          <h2 className="mt-10 text-xl font-bold text-black [letter-spacing:var(--tv-track-tight)]">
+            Rules
+          </h2>
+          <ul className="mt-3 flex flex-col gap-2.5">
+            {contest.rules.map((r) => (
+              <li
+                key={r}
+                className="flex items-start gap-3 text-base text-gray-700 [letter-spacing:var(--tv-track-tight)]"
+              >
+                <Check size={18} className="mt-0.5 flex-none text-black" />
+                {r}
+              </li>
+            ))}
+          </ul>
+
+          {/* Leaderboard placeholder */}
+          <h2 className="mt-10 text-xl font-bold text-black [letter-spacing:var(--tv-track-tight)]">
+            Leaderboard
+          </h2>
+          <p className="mt-1 text-sm text-gray-500 [letter-spacing:var(--tv-track-tight)]">
+            {live
+              ? "Ranking is provisional until judging closes."
+              : "Final results."}
+          </p>
+          <Card variant="flat" className="mt-3 divide-y divide-gray-200 !p-0">
+            {LEADERBOARD.map((e) => {
+              const won = prizeForRank(e.rank);
+              return (
+                <div key={e.rank} className="flex items-center gap-4 px-5 py-4">
+                  <span className="w-6 text-center text-lg font-bold text-gray-400 tabular-nums">
+                    {e.rank}
+                  </span>
+                  <Avatar name={e.name} size={40} />
+                  <div className="flex-1">
+                    <p className="flex items-center gap-2 text-[15px] font-semibold text-black [letter-spacing:var(--tv-track-tight)]">
+                      {e.name}
+                      {won && (
+                        <Badge tone="accent" accent={CONTEST_ACCENT} size="sm">
+                          Winner
+                        </Badge>
+                      )}
+                    </p>
+                    <p className="text-[13px] text-gray-500">{e.note}</p>
+                  </div>
+                  {won ? (
+                    <span className="flex items-center gap-1.5 text-[15px] font-semibold text-black [letter-spacing:var(--tv-track-tight)]">
+                      <Trophy size={16} style={{ color: CONTEST_ACCENT }} />
+                      {naira(won.amount)}
+                    </span>
+                  ) : null}
+                </div>
+              );
+            })}
+          </Card>
+        </div>
+
+        {/* Submission rail */}
+        <aside className="lg:sticky lg:top-[88px] lg:self-start">
+          <Card className="flex flex-col gap-4">
+            <div className="flex flex-col gap-3 border-b border-gray-200 pb-4">
+              {stats.map((s) => (
+                <div key={s.label} className="flex items-center justify-between">
+                  <span className="flex items-center gap-2 text-[15px] text-gray-600 [letter-spacing:var(--tv-track-tight)]">
+                    <span className="text-gray-400">{s.icon}</span>
+                    {s.label}
+                  </span>
+                  <span className="text-[15px] font-semibold text-black [letter-spacing:var(--tv-track-tight)]">
+                    {s.value}
+                  </span>
+                </div>
+              ))}
+            </div>
+            {live ? (
+              <ApplyDialog
+                fullWidth
+                label="Submit your entry"
+                title={`Enter — ${contest.title}`}
+                subtitle={`${winnerCount(contest)} winners · ${naira(prizePool(contest))} pool`}
+                promptLabel="Describe your entry"
+                withFile
+                fileHint="Upload your work — image, PDF, or zip"
+                successMessage="Entry submitted. Good luck!"
+              />
+            ) : (
+              <div className="rounded-sm bg-gray-100 px-4 py-3 text-center text-sm text-gray-600 [letter-spacing:var(--tv-track-tight)]">
+                This contest has ended.
+              </div>
+            )}
+            <p className="text-center text-[13px] text-gray-500 [letter-spacing:var(--tv-track-tight)]">
+              Results are announced on WhatsApp.
+            </p>
+          </Card>
+        </aside>
+      </div>
+    </div>
+  );
+}
