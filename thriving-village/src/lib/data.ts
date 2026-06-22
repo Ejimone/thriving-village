@@ -120,7 +120,7 @@ export async function getJobs(
                 "type",
                 "level",
                 "pay",
-                "postedAgo",
+                "createdAt",
               ],
             }),
       },
