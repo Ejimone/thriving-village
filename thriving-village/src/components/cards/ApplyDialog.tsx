@@ -17,6 +17,8 @@ type Props = {
   title: string;
   /** Short line under the title. */
   subtitle?: string;
+  /** Whether to show the note/prompt textarea at all. */
+  withPrompt?: boolean;
   /** What the textarea is asking for. */
   promptLabel?: string;
   /** Field name the textarea submits as — matches the target endpoint's body shape. */
@@ -41,6 +43,7 @@ export function ApplyDialog({
   label,
   title,
   subtitle,
+  withPrompt = true,
   promptLabel = "A short note (optional)",
   promptName = "message",
   promptRequired = false,
@@ -103,13 +106,15 @@ export function ApplyDialog({
           )}
           <Input name="name" label="Full name" placeholder="Your name" required />
           <Input name="whatsapp" label="WhatsApp number" placeholder="+234 ..." required />
-          <Textarea
-            name={promptName}
-            label={promptLabel}
-            rows={4}
-            placeholder="Tell us a little…"
-            required={promptRequired}
-          />
+          {withPrompt && (
+            <Textarea
+              name={promptName}
+              label={promptLabel}
+              rows={4}
+              placeholder="Tell us a little…"
+              required={promptRequired}
+            />
+          )}
           {withFile && <FileUpload name="file" label="Attachment" hint={fileHint} />}
           {withPortfolioUrl && (
             <Input

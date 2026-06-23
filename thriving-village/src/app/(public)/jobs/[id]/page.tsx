@@ -121,7 +121,7 @@ export default async function JobDetailPage({
                 label="Apply for this role"
                 title={`Apply — ${job.title}`}
                 subtitle={`${job.org} · ${job.location}`}
-                promptLabel="Why are you a good fit? (optional)"
+                withPrompt={false}
                 withFile
                 fileHint="Attach your CV — PDF or image"
                 withPortfolioUrl
