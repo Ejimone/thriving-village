@@ -701,6 +701,7 @@ export interface ApiJobApplicationJobApplication
       Schema.Attribute.Private;
     message: Schema.Attribute.Text;
     name: Schema.Attribute.String & Schema.Attribute.Required;
+    portfolioUrl: Schema.Attribute.String;
     publishedAt: Schema.Attribute.DateTime;
     status: Schema.Attribute.Enumeration<
       ['Applied', 'In review', 'Interview', 'Closed']

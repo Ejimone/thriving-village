@@ -135,7 +135,7 @@ export default async function HomePage() {
                 href={WHATSAPP_URL}
                 variant="inverse"
                 iconLeft={<MessageCircle size={18} />}
-                className="!bg-white !text-black !border-white hover:!bg-gray-100"
+                className="!bg-[#25D366] !border-[#25D366] !text-white hover:!bg-[#1DA851]"
               >
                 Join the community
               </Button>
@@ -180,9 +180,9 @@ export default async function HomePage() {
             All contests <ArrowRight size={16} className="ml-1" />
           </Button>
         </div>
-        <div className="grid gap-5 md:grid-cols-3">
+        <div className="flex flex-col gap-3">
           {liveContests.map((c) => (
-            <ContestCard key={c.id} contest={c} />
+            <ContestCard key={c.id} contest={c} variant="list" />
           ))}
         </div>
       </section>
@@ -248,7 +248,7 @@ export default async function HomePage() {
               size="lg"
               variant="inverse"
               iconLeft={<MessageCircle size={18} />}
-              className="!bg-white !text-black !border-white hover:!bg-gray-100"
+              className="!bg-[#25D366] !border-[#25D366] !text-white hover:!bg-[#1DA851]"
             >
               Join on WhatsApp
             </Button>

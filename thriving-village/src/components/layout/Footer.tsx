@@ -49,7 +49,7 @@ export function Footer() {
                 variant="inverse"
                 size="sm"
                 iconLeft={<MessageCircle size={16} />}
-                className="!bg-white !text-black !border-white hover:!bg-gray-100"
+                className="!bg-[#25D366] !border-[#25D366] !text-white hover:!bg-[#1DA851]"
               >
                 Join the community
               </Button>

@@ -656,7 +656,7 @@ export async function getBrands(params: { kind?: BrandKind; featured?: boolean }
 export const photo = (seed: string, w = 600, h = 400) =>
   `https://picsum.photos/seed/${seed}/${w}/${h}?grayscale`;
 
-export const WHATSAPP_URL = "https://chat.whatsapp.com/";
+export const WHATSAPP_URL = "https://whatsapp.com/channel/0029VbCwI97K5cDExM8g2z0Q";
 
 /* ============================================================
    TESTIMONIALS

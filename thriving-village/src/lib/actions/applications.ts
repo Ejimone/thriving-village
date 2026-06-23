@@ -29,10 +29,17 @@ export async function applyToJobAction(jobSlug: string, formData: FormData): Pro
   const name = String(formData.get("name") || "");
   const whatsapp = String(formData.get("whatsapp") || "");
   const message = String(formData.get("message") || "");
+  const portfolioUrl = String(formData.get("portfolioUrl") || "");
   const file = formData.get("file") as File | null;
 
   try {
-    await postApplyLike(`/api/jobs/${jobSlug}/apply`, { name, whatsapp, message }, "cv", file, session.jwt);
+    await postApplyLike(
+      `/api/jobs/${jobSlug}/apply`,
+      { name, whatsapp, message, portfolioUrl },
+      "cv",
+      file,
+      session.jwt,
+    );
     revalidateTag(`job:${jobSlug}`, { expire: 0 });
     return { success: true };
   } catch (err) {

@@ -80,6 +80,7 @@ export function Navbar({ session }: { session: { role: Role; name: string } | nu
                 variant="inverse"
                 size="sm"
                 iconLeft={<MessageCircle size={16} />}
+                className="!bg-[#25D366] !border-[#25D366] !text-white hover:!bg-[#1DA851]"
               >
                 Join on WhatsApp
               </Button>
@@ -169,6 +170,7 @@ export function Navbar({ session }: { session: { role: Role; name: string } | nu
                 variant="inverse"
                 fullWidth
                 iconLeft={<MessageCircle size={18} />}
+                className="!bg-[#25D366] !border-[#25D366] !text-white hover:!bg-[#1DA851]"
               >
                 Join on WhatsApp
               </Button>

@@ -91,7 +91,7 @@ export default factories.createCoreController('api::job.job', ({ strapi }) => ({
     const body = (ctx.request.body as any)?.data
       ? JSON.parse((ctx.request.body as any).data)
       : ctx.request.body;
-    const { name, whatsapp, message } = body || {};
+    const { name, whatsapp, message, portfolioUrl } = body || {};
     if (!name || !whatsapp) return ctx.badRequest('name and whatsapp are required.');
 
     const files = (ctx.request as any).files;
@@ -104,6 +104,7 @@ export default factories.createCoreController('api::job.job', ({ strapi }) => ({
         name,
         whatsapp,
         message,
+        portfolioUrl: portfolioUrl || undefined,
         status: 'Applied',
         ...(cv ? { cv } : {}),
       },

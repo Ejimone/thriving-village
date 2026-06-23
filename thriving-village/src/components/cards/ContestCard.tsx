@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
+import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { naira, photo, prizePool, winnerCount, type Contest } from "@/lib/data";
 import { cn } from "@/lib/utils";
@@ -13,11 +14,57 @@ const CONTEST_ACCENT = "var(--tv-accent-orange)";
 export function ContestCard({
   contest,
   featured = false,
+  variant = "poster",
 }: {
   contest: Contest;
   featured?: boolean;
+  /** "list" renders a text-only row (matching JobCard) instead of the image poster tile. */
+  variant?: "poster" | "list";
 }) {
   const live = contest.status === "live";
+
+  if (variant === "list") {
+    return (
+      <Link href={`/contests/${contest.id}`} className="block">
+        <Card
+          variant="flat"
+          className="flex flex-col gap-4 px-6 py-5 transition-colors hover:border-gray-300 sm:flex-row sm:items-center sm:gap-5"
+        >
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <span className="text-[19px] font-semibold text-black [letter-spacing:var(--tv-track-tight)]">
+                {contest.title}
+              </span>
+              <Badge tone="neutral" size="sm">
+                {contest.field}
+              </Badge>
+              {live ? (
+                <Badge tone="accent" accent={CONTEST_ACCENT} size="sm">
+                  {contest.daysLeft} days left
+                </Badge>
+              ) : (
+                <Badge tone="outline" size="sm">
+                  Ended
+                </Badge>
+              )}
+            </div>
+            <p className="mt-1.5 text-[15px] text-gray-500 [letter-spacing:var(--tv-track-tight)]">
+              {winnerCount(contest)} winners · {contest.entries} entries
+            </p>
+          </div>
+
+          <span className="text-[15px] font-semibold text-gray-800 whitespace-nowrap [letter-spacing:var(--tv-track-tight)]">
+            {naira(prizePool(contest))} pool
+          </span>
+
+          <span className="inline-flex items-center gap-1.5 rounded-pill bg-black px-[18px] py-2 text-sm font-semibold text-white">
+            View <ArrowRight size={14} />
+          </span>
+        </Card>
+      </Link>
+    );
+  }
+
   return (
     <Link
       href={`/contests/${contest.id}`}

@@ -11,8 +11,10 @@ import {
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { Avatar } from "@/components/ui/Avatar";
+import { StatusBadge } from "@/components/ui/StatusBadge";
 import { ApplyDialog } from "@/components/cards/ApplyDialog";
-import { getJob } from "@/lib/data";
+import { getJob, getMyApplications } from "@/lib/data";
+import { getSession } from "@/lib/session";
 import { applyToJobAction } from "@/lib/actions/applications";
 
 export default async function JobDetailPage({
@@ -21,8 +23,11 @@ export default async function JobDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const job = await getJob(id);
+  const [job, session] = await Promise.all([getJob(id), getSession()]);
   if (!job) notFound();
+
+  const myApplications = session ? await getMyApplications(session.jwt) : [];
+  const myApplication = myApplications.find((a) => a.jobId === job.id);
 
   const meta = [
     { icon: <Building2 size={16} />, text: `${job.org} · ${job.orgKind}` },
@@ -98,20 +103,32 @@ export default async function JobDetailPage({
                 </div>
               ))}
             </div>
-            <ApplyDialog
-              fullWidth
-              label="Apply for this role"
-              title={`Apply — ${job.title}`}
-              subtitle={`${job.org} · ${job.location}`}
-              promptLabel="Why are you a good fit? (optional)"
-              withFile
-              fileHint="Attach your CV — PDF or image"
-              successMessage="Application sent. We'll be in touch on WhatsApp."
-              action={applyToJobAction.bind(null, job.id)}
-            />
-            <p className="text-center text-[13px] text-gray-500 [letter-spacing:var(--tv-track-tight)]">
-              Updates come through WhatsApp.
-            </p>
+            {myApplication ? (
+              <>
+                <div className="flex items-center justify-between border-t border-gray-200 pt-4">
+                  <span className="text-[15px] font-medium text-black [letter-spacing:var(--tv-track-tight)]">
+                    You&apos;ve applied
+                  </span>
+                  <StatusBadge status={myApplication.status} />
+                </div>
+                <p className="text-center text-[13px] text-gray-500 [letter-spacing:var(--tv-track-tight)]">
+                  Updates come through WhatsApp.
+                </p>
+              </>
+            ) : (
+              <ApplyDialog
+                fullWidth
+                label="Apply for this role"
+                title={`Apply — ${job.title}`}
+                subtitle={`${job.org} · ${job.location}`}
+                promptLabel="Why are you a good fit? (optional)"
+                withFile
+                fileHint="Attach your CV — PDF or image"
+                withPortfolioUrl
+                successMessage="Application sent. We'll be in touch on WhatsApp."
+                action={applyToJobAction.bind(null, job.id)}
+              />
+            )}
           </Card>
         </aside>
       </div>

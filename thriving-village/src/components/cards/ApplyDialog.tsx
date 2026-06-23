@@ -26,6 +26,8 @@ type Props = {
   /** Whether to show a file upload (CVs, submissions). */
   withFile?: boolean;
   fileHint?: string;
+  /** Whether to show a portfolio URL field — lets applicants link work instead of (or alongside) a file. */
+  withPortfolioUrl?: boolean;
   /** Toast message on submit. */
   successMessage: string;
   buttonVariant?: ButtonProps["variant"];
@@ -44,6 +46,7 @@ export function ApplyDialog({
   promptRequired = false,
   withFile = false,
   fileHint,
+  withPortfolioUrl = false,
   successMessage,
   buttonVariant = "inverse",
   size = "lg",
@@ -108,6 +111,15 @@ export function ApplyDialog({
             required={promptRequired}
           />
           {withFile && <FileUpload name="file" label="Attachment" hint={fileHint} />}
+          {withPortfolioUrl && (
+            <Input
+              name="portfolioUrl"
+              type="url"
+              label="Portfolio URL (optional)"
+              placeholder="https://your-portfolio.com"
+              hint="Share a link instead of, or alongside, a file."
+            />
+          )}
         </form>
       </Modal>
     </>

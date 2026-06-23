@@ -38,6 +38,9 @@
       "multiple": false,
       "allowedTypes": ["files", "images"]
     },
+    "portfolioUrl": {
+      "type": "string"
+    },
     "status": {
       "type": "enumeration",
       "enum": ["Applied", "In review", "Interview", "Closed"],

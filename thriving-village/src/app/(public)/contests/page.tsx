@@ -39,9 +39,9 @@ export default async function ContestsPage() {
         <h2 className="mb-6 text-[clamp(26px,4vw,32px)] font-bold text-black [letter-spacing:var(--tv-track-tight)]">
           Live now
         </h2>
-        <div className="grid gap-5 md:grid-cols-3">
+        <div className="flex flex-col gap-3">
           {live.map((c) => (
-            <ContestCard key={c.id} contest={c} />
+            <ContestCard key={c.id} contest={c} variant="list" />
           ))}
         </div>
       </section>
@@ -51,9 +51,9 @@ export default async function ContestsPage() {
         <h2 className="mb-6 text-[clamp(26px,4vw,32px)] font-bold text-black [letter-spacing:var(--tv-track-tight)]">
           Past contests
         </h2>
-        <div className="grid gap-5 md:grid-cols-3">
+        <div className="flex flex-col gap-3">
           {past.map((c) => (
-            <ContestCard key={c.id} contest={c} />
+            <ContestCard key={c.id} contest={c} variant="list" />
           ))}
         </div>
       </section>
