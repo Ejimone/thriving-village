@@ -56,6 +56,29 @@ export type Job = {
   status?: "draft" | "published" | "closed";
 };
 
+/**
+ * `responsibilities`/`requirements`/`rules` are plain `json` fields meant to hold a
+ * string array, but content written outside our admin UI (e.g. an LLM creating rows
+ * straight in the database) sometimes uses Strapi's rich-text "blocks" shape instead
+ * (`{ type: "paragraph", children: [{ type: "text", text }] }`). Rendering one of
+ * those directly as a list item crashes the page (objects aren't valid React
+ * children), so normalize either shape down to plain strings here.
+ */
+function normalizeStringList(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => {
+      if (typeof item === "string") return item;
+      if (item && typeof item === "object" && Array.isArray((item as { children?: unknown }).children)) {
+        return (item as { children: { text?: string }[] }).children
+          .map((c) => c?.text ?? "")
+          .join("");
+      }
+      return "";
+    })
+    .filter(Boolean);
+}
+
 function mapJob(raw: Record<string, unknown>): Job {
   return {
     id: String(raw.slug),
@@ -72,8 +95,8 @@ function mapJob(raw: Record<string, unknown>): Job {
     postedAgo: String(raw.postedAgo ?? ""),
     summary: String(raw.summary ?? ""),
     status: raw.status as Job["status"] | undefined,
-    responsibilities: (raw.responsibilities as string[]) ?? [],
-    requirements: (raw.requirements as string[]) ?? [],
+    responsibilities: normalizeStringList(raw.responsibilities),
+    requirements: normalizeStringList(raw.requirements),
   };
 }
 
@@ -195,7 +218,7 @@ function mapContest(raw: Record<string, unknown>): Contest {
     deadline: String(raw.deadline ?? ""),
     status: raw.status as Contest["status"],
     brief: String(raw.brief ?? ""),
-    rules: (raw.rules as string[]) ?? [],
+    rules: normalizeStringList(raw.rules),
     seed: String(raw.seed ?? raw.slug),
     prizePoolTotal: Number(raw.prizePool ?? 0),
     topPrizeAmount: Number(raw.topPrize ?? 0),
