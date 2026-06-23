@@ -1,13 +1,78 @@
 "use client";
 
+import { useState } from "react";
+import { Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
+import { Button } from "@/components/ui/Button";
+import { IconButton } from "@/components/ui/IconButton";
 import { AdminCrud, type AdminRow } from "@/components/admin/AdminCrud";
 import { saveContestAction, deleteContestAction } from "@/lib/actions/admin";
 import { naira } from "@/lib/data";
-import type { Contest } from "@/lib/data";
+import type { Contest, ContestPrize } from "@/lib/data";
+
+const DEFAULT_PRIZES: ContestPrize[] = [
+  { place: 1, label: "1st place", amount: 500000 },
+  { place: 2, label: "2nd place", amount: 200000 },
+  { place: 3, label: "3rd place", amount: 100000 },
+];
+
+function PrizesField({ initial }: { initial: ContestPrize[] }) {
+  const [rows, setRows] = useState<ContestPrize[]>(initial);
+  const pool = rows.reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
+
+  function updateRow(i: number, patch: Partial<ContestPrize>) {
+    setRows((prev) => prev.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
+  }
+  function addRow() {
+    setRows((prev) => [...prev, { place: prev.length + 1, label: `${prev.length + 1}th place`, amount: 0 }]);
+  }
+  function removeRow(i: number) {
+    setRows((prev) => prev.filter((_, idx) => idx !== i).map((r, idx) => ({ ...r, place: idx + 1 })));
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-semibold text-black [letter-spacing:var(--tv-track-tight)]">
+          {`Prizes (${rows.length} winner${rows.length === 1 ? "" : "s"})`}
+        </span>
+        <span className="text-[13px] text-gray-500">{`Pool: ${naira(pool)}`}</span>
+      </div>
+      {rows.map((row, i) => (
+        <div key={i} className="flex items-center gap-3">
+          <span className="w-4 shrink-0 text-sm text-gray-400">{i + 1}</span>
+          <div className="flex-1">
+            <Input value={row.label} onChange={(e) => updateRow(i, { label: e.target.value })} />
+          </div>
+          <div className="w-36 shrink-0">
+            <Input
+              type="number"
+              prefix="₦"
+              value={row.amount}
+              onChange={(e) => updateRow(i, { amount: Number(e.target.value) })}
+            />
+          </div>
+          <IconButton
+            variant="ghost"
+            size="sm"
+            aria-label="Delete prize"
+            onClick={() => removeRow(i)}
+            disabled={rows.length <= 1}
+          >
+            <Trash2 size={16} />
+          </IconButton>
+        </div>
+      ))}
+      <Button variant="outline" size="sm" onClick={addRow} className="self-start">
+        + Add winner
+      </Button>
+      <input type="hidden" name="prizes" value={JSON.stringify(rows)} />
+    </div>
+  );
+}
 
 export function ContestsAdmin({ contests }: { contests: Contest[] }) {
   const byId = new Map(contests.map((c) => [c.documentId, c]));
@@ -32,8 +97,8 @@ export function ContestsAdmin({ contests }: { contests: Contest[] }) {
     const contest = documentId ? byId.get(documentId) : undefined;
     return (
       <>
-        <Input name="title" label="Contest title" placeholder="e.g. Logo Design Sprint" defaultValue={contest?.title} required />
-        <div className="grid grid-cols-2 gap-4">
+        <Input name="title" label="Contest title" placeholder="e.g. Logo for a Lagos café" defaultValue={contest?.title} required />
+        <div className="grid grid-cols-[40%_55%] gap-4">
           <Select
             name="field"
             label="Field"
@@ -45,39 +110,27 @@ export function ContestsAdmin({ contests }: { contests: Contest[] }) {
               { label: "Creative", value: "Creative" },
             ]}
           />
-          <Select
-            name="status"
-            label="Status"
-            defaultValue={contest?.status ?? "live"}
-            options={[
-              { label: "Live", value: "live" },
-              { label: "Past", value: "past" },
-            ]}
+          <Input
+            name="deadline"
+            label="Deadline"
+            type="date"
+            defaultValue={contest?.deadline ? contest.deadline.slice(0, 10) : undefined}
+            required
           />
         </div>
-        <Input
-          name="deadline"
-          label="Deadline"
-          type="datetime-local"
-          defaultValue={contest?.deadline ? contest.deadline.slice(0, 16) : undefined}
+        {/* Status has no UI now — preserve the existing value on edit, default new contests to "live". */}
+        <input type="hidden" name="status" value={contest?.status ?? "live"} />
+        <Textarea
+          name="brief"
+          label="Brief"
+          rows={3}
+          placeholder="What should people make? Keep it simple."
+          defaultValue={contest?.brief}
           required
         />
-        <Textarea name="brief" label="Brief" rows={3} placeholder="What entrants need to do." defaultValue={contest?.brief} required />
-        <Textarea
-          name="rules"
-          label="Rules (one per line)"
-          rows={3}
-          placeholder={"Open to all skill levels\nOne entry per person"}
-          defaultValue={contest?.rules.join("\n")}
-        />
-        <Textarea
-          name="prizes"
-          label="Prizes (JSON array)"
-          rows={4}
-          placeholder='[{"place":1,"label":"1st Place","amount":100000}]'
-          defaultValue={contest ? JSON.stringify(contest.prizes, null, 2) : ""}
-          hint='Each entry needs place, label, amount. e.g. [{"place":1,"label":"1st Place","amount":100000}]'
-        />
+        {/* Rules has no UI now — preserve whatever the contest already had so editing doesn't wipe it. */}
+        <input type="hidden" name="rules" value={contest?.rules.join("\n") ?? ""} />
+        <PrizesField initial={contest?.prizes ?? DEFAULT_PRIZES} />
       </>
     );
   }
