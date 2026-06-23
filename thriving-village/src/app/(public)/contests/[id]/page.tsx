@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { Avatar } from "@/components/ui/Avatar";
 import { ApplyDialog } from "@/components/cards/ApplyDialog";
-import { getContest, getLeaderboard, naira, photo, prizePool, winnerCount } from "@/lib/data";
+import { getContest, getLeaderboard, naira, prizePool, winnerCount } from "@/lib/data";
 import { enterContestAction } from "@/lib/actions/applications";
 
 const CONTEST_ACCENT = "var(--tv-accent-orange)";
@@ -44,34 +44,23 @@ export default async function ContestDetailPage({
         <ArrowLeft size={16} /> All contests
       </Link>
 
-      {/* Banner */}
-      <div className="relative mt-6 h-[240px] overflow-hidden rounded-card bg-gray-900">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={photo(contest.seed, 1200, 480)}
-          alt=""
-          className="h-full w-full object-cover tv-photo"
-        />
-        <div className="absolute inset-0 bg-[linear-gradient(to_top,rgba(10,10,10,0.65),transparent_60%)]" />
-        <span className="absolute left-5 top-5">
-          {live ? (
-            <Badge tone="accent" accent={CONTEST_ACCENT} size="md">
-              {contest.daysLeft} days left
-            </Badge>
-          ) : (
-            <Badge tone="inverse" size="md">
-              Ended
-            </Badge>
-          )}
-        </span>
-      </div>
-
-      <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_320px]">
+      <div className="mt-6 grid gap-8 lg:grid-cols-[1fr_320px]">
         {/* Main */}
         <div>
-          <Badge tone="neutral" size="md">
-            {contest.field}
-          </Badge>
+          <div className="flex flex-wrap items-center gap-2.5">
+            <Badge tone="neutral" size="md">
+              {contest.field}
+            </Badge>
+            {live ? (
+              <Badge tone="accent" accent={CONTEST_ACCENT} size="md">
+                {contest.daysLeft} days left
+              </Badge>
+            ) : (
+              <Badge tone="outline" size="md">
+                Ended
+              </Badge>
+            )}
+          </div>
           <h1 className="mt-4 text-[clamp(30px,5vw,44px)] font-bold leading-[1.05] text-black [letter-spacing:var(--tv-track-tighter)]">
             {contest.title}
           </h1>
