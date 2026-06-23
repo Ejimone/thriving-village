@@ -201,6 +201,19 @@ export type Contest = {
   winners: number;
 };
 
+/**
+ * `status` is only valid as "live" or "past", but content written outside our admin
+ * UI can land an unrecognized value (e.g. an LLM writing "published" straight into
+ * the database). Rather than silently dropping those contests from both the live and
+ * past lists, fall back to deriving status from the deadline so they still show up
+ * somewhere sensible.
+ */
+function normalizeContestStatus(rawStatus: unknown, deadline: unknown): Contest["status"] {
+  if (rawStatus === "live" || rawStatus === "past") return rawStatus;
+  const deadlineMs = new Date(String(deadline)).getTime();
+  return Number.isFinite(deadlineMs) && deadlineMs >= Date.now() ? "live" : "past";
+}
+
 function mapContest(raw: Record<string, unknown>): Contest {
   const prizes = ((raw.prizes as Record<string, unknown>[]) ?? []).map((p) => ({
     place: Number(p.place),
@@ -216,7 +229,7 @@ function mapContest(raw: Record<string, unknown>): Contest {
     entries: Number(raw.entries ?? 0),
     daysLeft: Number(raw.daysLeft ?? 0),
     deadline: String(raw.deadline ?? ""),
-    status: raw.status as Contest["status"],
+    status: normalizeContestStatus(raw.status, raw.deadline),
     brief: String(raw.brief ?? ""),
     rules: normalizeStringList(raw.rules),
     seed: String(raw.seed ?? raw.slug),
@@ -237,20 +250,24 @@ export async function getContests(
   params: { status?: "live" | "past"; page?: number; pageSize?: number } = {},
 ): Promise<Paginated<Contest>> {
   const { status, page = 1, pageSize = 12 } = params;
-  const filters: Record<string, unknown> = {};
-  if (status) filters.status = { $eq: status };
 
   try {
+    // Status is filtered client-side (after normalizeContestStatus) rather than via a
+    // Strapi `filters.status` match — an exact-match filter would silently drop any
+    // contest whose stored status isn't literally "live"/"past" (see normalizeContestStatus).
     const res = await strapiFetch<StrapiListResponse<Record<string, unknown>>>("/api/contests", {
-      query: { filters, sort: "deadline:asc", pagination: { page, pageSize } },
+      query: { sort: "deadline:asc", pagination: { pageSize: 100 } },
       next: { revalidate: 60, tags: ["contests"] },
     });
+    const all = res.data.map(mapContest);
+    const filtered = status ? all.filter((c) => c.status === status) : all;
+    const start = (page - 1) * pageSize;
     return {
-      items: res.data.map(mapContest),
-      page: res.meta.pagination.page,
-      pageSize: res.meta.pagination.pageSize,
-      pageCount: res.meta.pagination.pageCount,
-      total: res.meta.pagination.total,
+      items: filtered.slice(start, start + pageSize),
+      page,
+      pageSize,
+      pageCount: Math.ceil(filtered.length / pageSize) || 0,
+      total: filtered.length,
     };
   } catch {
     return emptyPage(page, pageSize);
