@@ -118,8 +118,15 @@ export function ContestsAdmin({ contests }: { contests: Contest[] }) {
             required
           />
         </div>
-        {/* Status has no UI now — preserve the existing value on edit, default new contests to "live". */}
-        <input type="hidden" name="status" value={contest?.status ?? "live"} />
+        <Select
+          name="status"
+          label="Status"
+          defaultValue={contest?.status ?? "live"}
+          options={[
+            { label: "Live", value: "live" },
+            { label: "Past", value: "past" },
+          ]}
+        />
         <Textarea
           name="brief"
           label="Brief"
