@@ -67,6 +67,23 @@ export function LiveJobList({
   const [total, setTotal] = useState(initialTotal);
   const [newCount, setNewCount] = useState(0);
   const [justArrivedId, setJustArrivedId] = useState<string | null>(null);
+  const [savedSlugs, setSavedSlugs] = useState<Set<string>>(new Set());
+
+  // One fetch for the whole page, not one per card — `key`s below force the
+  // small set of affected cards to remount (cheap, leaf components) once this
+  // resolves, since `JobCard`'s `initialSaved` is only read on its own mount.
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/me/saved-jobs")
+      .then((res) => res.json())
+      .then((data: { slugs: string[] }) => {
+        if (!cancelled) setSavedSlugs(new Set(data.slugs));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     const source = new EventSource("/api/jobs/stream");
@@ -106,12 +123,12 @@ export function LiveJobList({
         {jobs.length > 0 ? (
           jobs.map((j) => (
             <div
-              key={j.id}
+              key={`${j.id}:${savedSlugs.has(j.id)}`}
               className={`rounded-lg transition-colors duration-700 ${
                 j.id === justArrivedId ? "bg-[color:var(--tv-accent-yellow)]/10" : ""
               }`}
             >
-              <JobCard job={j} />
+              <JobCard job={j} initialSaved={savedSlugs.has(j.id)} />
             </div>
           ))
         ) : (
