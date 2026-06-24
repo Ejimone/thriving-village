@@ -4,15 +4,33 @@ import { Badge } from "@/components/ui/Badge";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
-import { AdminCrud, type AdminRow } from "@/components/admin/AdminCrud";
+import { AdminCrud, PENDING_NEW_ID, type AdminRow } from "@/components/admin/AdminCrud";
 import { saveCourseAction, deleteCourseAction } from "@/lib/actions/admin";
 import { naira } from "@/lib/data";
-import type { Course } from "@/lib/data";
+import type { Course, CourseDelivery, CourseKind, Field } from "@/lib/data";
 
-export function CoursesAdmin({ courses }: { courses: Course[] }) {
-  const byId = new Map(courses.map((c) => [c.documentId, c]));
+const blankCourse: Course = {
+  id: "",
+  dbId: 0,
+  documentId: "",
+  title: "",
+  field: "Digital",
+  level: "Entry",
+  kind: "Course",
+  delivery: "Online",
+  instructor: "",
+  instructorRole: "",
+  price: 0,
+  weeks: 0,
+  lessonCount: 0,
+  seed: "",
+  blurb: "",
+  outcomes: [],
+  modules: [],
+};
 
-  const rows: AdminRow[] = courses.map((c) => ({
+function buildRow(c: Course): AdminRow {
+  return {
     id: c.documentId,
     label: c.title,
     cells: [
@@ -24,7 +42,27 @@ export function CoursesAdmin({ courses }: { courses: Course[] }) {
       c.delivery,
       naira(c.price),
     ],
-  }));
+  };
+}
+
+export function CoursesAdmin({ courses }: { courses: Course[] }) {
+  const byId = new Map(courses.map((c) => [c.documentId, c]));
+
+  const rows: AdminRow[] = courses.map(buildRow);
+
+  function previewRow(documentId: string | null, formData: FormData): AdminRow {
+    const existing = documentId ? byId.get(documentId) : undefined;
+    const get = (k: string, fallback: string) => String(formData.get(k) ?? fallback);
+    return buildRow({
+      ...(existing ?? blankCourse),
+      documentId: documentId ?? PENDING_NEW_ID,
+      title: get("title", existing?.title ?? ""),
+      field: get("field", existing?.field ?? "Digital") as Field,
+      kind: get("kind", existing?.kind ?? "Course") as CourseKind,
+      delivery: get("delivery", existing?.delivery ?? "Online") as CourseDelivery,
+      price: Number(formData.get("price") ?? existing?.price ?? 0),
+    });
+  }
 
   function renderForm(documentId: string | null) {
     const course = documentId ? byId.get(documentId) : undefined;
@@ -118,6 +156,7 @@ export function CoursesAdmin({ courses }: { courses: Course[] }) {
       renderForm={renderForm}
       onSave={saveCourseAction}
       onDelete={deleteCourseAction}
+      previewRow={previewRow}
     />
   );
 }

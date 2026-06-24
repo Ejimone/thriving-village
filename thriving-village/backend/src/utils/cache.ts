@@ -1,17 +1,45 @@
 import { Redis } from '@upstash/redis';
+import { CircuitBreaker } from './circuit-breaker';
+
+const REDIS_TIMEOUT_MS = 1500;
 
 /**
  * Optional — if Upstash creds aren't set (e.g. local dev without them), every
  * call below degrades to "no caching" instead of throwing, so the app still
- * works without Redis configured.
+ * works without Redis configured. `signal` is called fresh per command by the
+ * Upstash client, so a hung command aborts (and frees its socket) on its own
+ * instead of relying on us to time it out from the outside.
  */
 const redis =
   process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
     ? new Redis({
         url: process.env.UPSTASH_REDIS_REST_URL,
         token: process.env.UPSTASH_REDIS_REST_TOKEN,
+        signal: () => AbortSignal.timeout(REDIS_TIMEOUT_MS),
+        // The breaker is our resilience layer — the client's own retries would
+        // multiply REDIS_TIMEOUT_MS several times over before a call ever
+        // surfaces as a failure, defeating the fast-fail goal.
+        retry: false,
       })
     : null;
+
+/**
+ * Guards every Redis call so that a slow/unreachable Upstash can't pile up
+ * in-flight requests across every job/course/contest/admin-dashboard request
+ * that touches the cache. Once tripped, callers fall back to "no caching"
+ * (see `cached`/`invalidateScope` below) exactly like the unconfigured case.
+ */
+const breaker = new CircuitBreaker({
+  failureThreshold: 5,
+  cooldownMs: 15_000,
+  halfOpenSuccesses: 2,
+  maxConcurrent: 20,
+});
+
+function warnOnce(scope: string, err: unknown) {
+  const message = err instanceof Error ? err.message : String(err);
+  console.warn(`[cache] Redis unavailable for scope "${scope}", bypassing cache: ${message}`);
+}
 
 const NAMESPACE = 'tv';
 
@@ -31,12 +59,22 @@ export async function cached<T>(
   if (!redis) return fetcher();
 
   const cacheKey = `${NAMESPACE}:${scope}:${key}`;
-  const hit = await redis.get<T>(cacheKey);
-  if (hit !== null && hit !== undefined) return hit;
+
+  try {
+    const hit = await breaker.exec(() => redis.get<T>(cacheKey));
+    if (hit !== null && hit !== undefined) return hit;
+  } catch (err) {
+    warnOnce(scope, err);
+    return fetcher();
+  }
 
   const value = await fetcher();
-  await redis.set(cacheKey, value, { ex: ttlSeconds });
-  await redis.sadd(`${NAMESPACE}:${scope}:keys`, cacheKey);
+  try {
+    await breaker.exec(() => redis.set(cacheKey, value, { ex: ttlSeconds }));
+    await breaker.exec(() => redis.sadd(`${NAMESPACE}:${scope}:keys`, cacheKey));
+  } catch (err) {
+    warnOnce(scope, err);
+  }
   return value;
 }
 
@@ -44,7 +82,12 @@ export async function cached<T>(
 export async function invalidateScope(scope: string): Promise<void> {
   if (!redis) return;
   const registryKey = `${NAMESPACE}:${scope}:keys`;
-  const keys = await redis.smembers(registryKey);
-  if (keys.length > 0) await redis.del(...keys);
-  await redis.del(registryKey);
+  try {
+    const keys = await breaker.exec(() => redis.smembers(registryKey));
+    if (keys.length > 0) await breaker.exec(() => redis.del(...keys));
+    await breaker.exec(() => redis.del(registryKey));
+  } catch (err) {
+    warnOnce(scope, err);
+    // Skip invalidation — the existing short TTLs bound how stale reads get.
+  }
 }

@@ -34,6 +34,26 @@ export default factories.createCoreController('api::job.job', ({ strapi }) => ({
     }
     const result = await super.create(ctx);
     await invalidateScope('jobs');
+
+    // Public job board listens on /job-stream for this — only broadcast jobs visible to
+    // the public (drafts are filtered out of `find`/`findOne` the same way for everyone else).
+    const job = result?.data as any;
+    if (job && job.status !== 'draft') {
+      strapi.eventHub.emit('tv.job.created', {
+        id: job.slug,
+        title: job.title,
+        org: job.org,
+        orgKind: job.orgKind,
+        field: job.field,
+        location: job.location,
+        locationType: job.locationType,
+        type: job.type,
+        level: job.level,
+        pay: job.pay,
+        postedAgo: timeAgo(job.createdAt),
+      });
+    }
+
     return result;
   },
 
@@ -114,5 +134,35 @@ export default factories.createCoreController('api::job.job', ({ strapi }) => ({
     await logActivity(strapi, { who: name, what: `applied to ${job.title}`, kind: 'application' });
 
     ctx.body = { data: application };
+  },
+
+  // Public SSE stream of newly published jobs — pushed via strapi.eventHub so the job
+  // board can live-insert new listings without polling or a page reload. Unauthenticated
+  // on purpose: the payload only ever contains the same fields already public via GET /jobs.
+  async stream(ctx) {
+    ctx.request.socket.setTimeout(0);
+    ctx.res.setHeader('Content-Type', 'text/event-stream');
+    ctx.res.setHeader('Cache-Control', 'no-cache');
+    ctx.res.setHeader('Connection', 'keep-alive');
+    ctx.res.setHeader('X-Accel-Buffering', 'no');
+    ctx.status = 200;
+    ctx.respond = false;
+
+    const send = (event: string, data: unknown) => {
+      ctx.res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+    };
+    send('connected', { ok: true });
+
+    const unsubscribe = strapi.eventHub.on('tv.job.created', async (payload: unknown) => {
+      send('job.created', payload);
+    });
+
+    const heartbeat = setInterval(() => ctx.res.write(': ping\n\n'), 20_000);
+
+    ctx.req.on('close', () => {
+      clearInterval(heartbeat);
+      unsubscribe();
+      ctx.res.end();
+    });
   },
 }));

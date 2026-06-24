@@ -8,7 +8,10 @@
  * never `populate=*`, never an unbounded list.
  */
 
+import { BulkheadRejectedError, CircuitBreaker, CircuitOpenError } from "./circuit-breaker";
+
 const STRAPI_URL = process.env.STRAPI_URL || "http://localhost:1337";
+const STRAPI_TIMEOUT_MS = 5000;
 
 export class StrapiError extends Error {
   status: number;
@@ -18,6 +21,20 @@ export class StrapiError extends Error {
     this.status = status;
   }
 }
+
+/**
+ * Guards every call to the backend so a slow/down Strapi can't pile up
+ * in-flight Next.js requests across every page render and server action that
+ * depends on it (every one of those call sites already catches `StrapiError`
+ * and falls back to an empty/null result, so a tripped breaker degrades the
+ * same way a normal request error would).
+ */
+const breaker = new CircuitBreaker({
+  failureThreshold: 5,
+  cooldownMs: 10_000,
+  halfOpenSuccesses: 2,
+  maxConcurrent: 10,
+});
 
 function appendQueryParam(params: URLSearchParams, key: string, value: unknown) {
   if (value === undefined || value === null) return;
@@ -64,6 +81,7 @@ export async function strapiFetch<T>(path: string, options: FetchOptions = {}): 
     method,
     headers,
     body: body ? (isFormData ? (body as FormData) : JSON.stringify(body)) : undefined,
+    signal: AbortSignal.timeout(STRAPI_TIMEOUT_MS),
   };
   if (noStore) {
     init.cache = "no-store";
@@ -71,7 +89,15 @@ export async function strapiFetch<T>(path: string, options: FetchOptions = {}): 
     init.next = next;
   }
 
-  const res = await fetch(url, init);
+  let res: Response;
+  try {
+    res = await breaker.exec(() => fetch(url, init));
+  } catch (err) {
+    if (err instanceof CircuitOpenError || err instanceof BulkheadRejectedError) {
+      throw new StrapiError("Service temporarily unavailable", 503);
+    }
+    throw err;
+  }
 
   if (!res.ok) {
     let message = res.statusText;

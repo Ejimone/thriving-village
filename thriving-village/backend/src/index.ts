@@ -9,6 +9,7 @@ const ROLES: Array<{ type: string; name: string; description: string }> = [
 const PUBLIC_READ = [
   'api::job.job.find',
   'api::job.job.findOne',
+  'api::job.job.stream',
   'api::contest.contest.find',
   'api::contest.contest.findOne',
   'api::contest.contest.leaderboard',
@@ -111,6 +112,34 @@ async function ensureRole(strapi: Strapi, role: { type: string; name: string; de
   return strapi.db.query('plugin::users-permissions.role').create({ data: role });
 }
 
+// Strapi v5 stores permission->role via a link table (up_permissions_role_lnk), not a
+// role_id column, and createMany/deleteMany don't run the relation attach/cleanup step
+// that create()/delete() do (acknowledged TODO in @strapi/database's entity-manager) —
+// using them here would silently orphan or leave dangling relations. So we keep the
+// relation-safe single-row create()/delete() calls, but fire each chunk concurrently
+// instead of awaiting one at a time, which is where nearly all of the wall-clock cost was.
+const WRITE_CONCURRENCY = 25;
+
+async function createPermissionsBatched(strapi: Strapi, roleId: number, actions: string[]) {
+  for (let i = 0; i < actions.length; i += WRITE_CONCURRENCY) {
+    const chunk = actions.slice(i, i + WRITE_CONCURRENCY);
+    await Promise.all(
+      chunk.map((action) =>
+        strapi.db.query('plugin::users-permissions.permission').create({ data: { action, role: roleId } })
+      )
+    );
+  }
+}
+
+async function deletePermissionsBatched(strapi: Strapi, ids: number[]) {
+  for (let i = 0; i < ids.length; i += WRITE_CONCURRENCY) {
+    const chunk = ids.slice(i, i + WRITE_CONCURRENCY);
+    await Promise.all(
+      chunk.map((id) => strapi.db.query('plugin::users-permissions.permission').delete({ where: { id } }))
+    );
+  }
+}
+
 async function ensurePluginPermissions(strapi: Strapi, roleType: string, actions: string[]) {
   const role = await strapi.db.query('plugin::users-permissions.role').findOne({
     where: { type: roleType },
@@ -118,13 +147,8 @@ async function ensurePluginPermissions(strapi: Strapi, roleType: string, actions
   });
   if (!role) return;
   const existing = new Set((role.permissions || []).map((p: any) => p.action));
-  for (const action of actions) {
-    if (!existing.has(action)) {
-      await strapi.db.query('plugin::users-permissions.permission').create({
-        data: { action, role: role.id },
-      });
-    }
-  }
+  const toCreate = actions.filter((action) => !existing.has(action));
+  await createPermissionsBatched(strapi, role.id, toCreate);
 }
 
 async function syncPermissions(strapi: Strapi, roleType: string, allowedActions: string[]) {
@@ -146,20 +170,14 @@ async function syncPermissions(strapi: Strapi, roleType: string, allowedActions:
       .map((p: any) => [p.action, p])
   );
 
-  for (const action of allowed) {
-    if (!existingByAction.has(action)) {
-      await strapi.db.query('plugin::users-permissions.permission').create({
-        data: { action, role: role.id },
-      });
-    }
-  }
+  const toCreate = Array.from(allowed).filter((action) => !existingByAction.has(action));
+  await createPermissionsBatched(strapi, role.id, toCreate);
 
   // remove anything previously granted that is no longer in the allow-list
-  for (const [action, perm] of existingByAction) {
-    if (!allowed.has(action)) {
-      await strapi.db.query('plugin::users-permissions.permission').delete({ where: { id: perm.id } });
-    }
-  }
+  const idsToDelete = Array.from(existingByAction.values())
+    .filter((perm) => !allowed.has(perm.action))
+    .map((perm) => perm.id);
+  await deletePermissionsBatched(strapi, idsToDelete);
 }
 
 export default {

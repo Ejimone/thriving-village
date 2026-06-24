@@ -1,11 +1,6 @@
-import { Briefcase } from "lucide-react";
-import { EmptyState } from "@/components/ui/EmptyState";
-import { Button } from "@/components/ui/Button";
 import { Pagination } from "@/components/ui/Pagination";
-import { JobCard } from "@/components/cards/JobCard";
-import { JobFilters } from "@/components/cards/JobFilters";
-import { getJobs, getSavedJobSlugs, type Field, type LocationType, type ExperienceLevel } from "@/lib/data";
-import { getSession } from "@/lib/session";
+import { LiveJobList } from "@/components/cards/LiveJobList";
+import { getJobs, type Field, type LocationType, type ExperienceLevel } from "@/lib/data";
 
 export default async function JobsPage({
   searchParams,
@@ -14,19 +9,12 @@ export default async function JobsPage({
 }) {
   const params = await searchParams;
   const page = Number(params.page) || 1;
+  const field = params.field as Field | undefined;
+  const locationType = params.location as LocationType | undefined;
+  const level = params.level as ExperienceLevel | undefined;
+  const query = params.query;
 
-  const [{ items: jobs, total, pageCount }, session] = await Promise.all([
-    getJobs({
-      field: params.field as Field | undefined,
-      locationType: params.location as LocationType | undefined,
-      level: params.level as ExperienceLevel | undefined,
-      query: params.query,
-      page,
-    }),
-    getSession(),
-  ]);
-
-  const savedSlugs = session ? await getSavedJobSlugs(session.jwt) : new Set<string>();
+  const { items: jobs, total, pageCount } = await getJobs({ field, locationType, level, query, page });
 
   const hrefForPage = (p: number) => {
     const next = new URLSearchParams(params as Record<string, string>);
@@ -43,24 +31,12 @@ export default async function JobsPage({
         Real roles from our sister businesses and partners.
       </p>
 
-      <JobFilters total={total} />
-
-      <div className="mt-6 flex flex-col gap-3 pb-4">
-        {jobs.length > 0 ? (
-          jobs.map((j) => <JobCard key={j.id} job={j} initialSaved={savedSlugs.has(j.id)} />)
-        ) : (
-          <EmptyState
-            icon={<Briefcase size={22} />}
-            title="No jobs match your filters yet"
-            body="Try widening your search or clearing a filter — new roles are posted often."
-            action={
-              <Button variant="outline" href="/jobs">
-                Clear filters
-              </Button>
-            }
-          />
-        )}
-      </div>
+      <LiveJobList
+        initialJobs={jobs}
+        initialTotal={total}
+        page={page}
+        filters={{ field, locationType, level, query }}
+      />
 
       <Pagination page={page} pageCount={pageCount} hrefForPage={hrefForPage} />
     </div>

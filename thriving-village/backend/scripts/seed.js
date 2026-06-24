@@ -71,7 +71,7 @@ async function main() {
 
   await app.entityService.create('api::job.job', {
     data: {
-      title: 'Unpublished Draft Job',
+      title: '',
       slug: 'draft-job-test',
       org: 'Internal',
       orgKind: 'Sister business',

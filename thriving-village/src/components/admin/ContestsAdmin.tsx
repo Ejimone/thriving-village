@@ -8,10 +8,10 @@ import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
 import { Button } from "@/components/ui/Button";
 import { IconButton } from "@/components/ui/IconButton";
-import { AdminCrud, type AdminRow } from "@/components/admin/AdminCrud";
+import { AdminCrud, PENDING_NEW_ID, type AdminRow } from "@/components/admin/AdminCrud";
 import { saveContestAction, deleteContestAction } from "@/lib/actions/admin";
 import { naira } from "@/lib/data";
-import type { Contest, ContestPrize } from "@/lib/data";
+import type { Contest, ContestPrize, Field } from "@/lib/data";
 
 const DEFAULT_PRIZES: ContestPrize[] = [
   { place: 1, label: "1st place", amount: 500000 },
@@ -74,10 +74,26 @@ function PrizesField({ initial }: { initial: ContestPrize[] }) {
   );
 }
 
-export function ContestsAdmin({ contests }: { contests: Contest[] }) {
-  const byId = new Map(contests.map((c) => [c.documentId, c]));
+const blankContest: Contest = {
+  id: "",
+  documentId: "",
+  title: "",
+  field: "Digital",
+  prizes: [],
+  entries: 0,
+  daysLeft: 0,
+  deadline: "",
+  status: "live",
+  brief: "",
+  rules: [],
+  seed: "",
+  prizePoolTotal: 0,
+  topPrizeAmount: 0,
+  winners: 0,
+};
 
-  const rows: AdminRow[] = contests.map((c) => ({
+function buildRow(c: Contest): AdminRow {
+  return {
     id: c.documentId,
     label: c.title,
     cells: [
@@ -91,7 +107,35 @@ export function ContestsAdmin({ contests }: { contests: Contest[] }) {
       naira(c.prizePoolTotal),
       String(c.entries),
     ],
-  }));
+  };
+}
+
+export function ContestsAdmin({ contests }: { contests: Contest[] }) {
+  const byId = new Map(contests.map((c) => [c.documentId, c]));
+
+  const rows: AdminRow[] = contests.map(buildRow);
+
+  function previewRow(documentId: string | null, formData: FormData): AdminRow {
+    const existing = documentId ? byId.get(documentId) : undefined;
+    const get = (k: string, fallback: string) => String(formData.get(k) ?? fallback);
+
+    let prizePoolTotal = existing?.prizePoolTotal ?? 0;
+    try {
+      const prizes = JSON.parse(String(formData.get("prizes") ?? "[]")) as ContestPrize[];
+      prizePoolTotal = prizes.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+    } catch {
+      // Malformed JSON mid-edit — keep showing the last known total rather than erroring.
+    }
+
+    return buildRow({
+      ...(existing ?? blankContest),
+      documentId: documentId ?? PENDING_NEW_ID,
+      title: get("title", existing?.title ?? ""),
+      field: get("field", existing?.field ?? "Digital") as Field,
+      status: get("status", existing?.status ?? "live") as Contest["status"],
+      prizePoolTotal,
+    });
+  }
 
   function renderForm(documentId: string | null) {
     const contest = documentId ? byId.get(documentId) : undefined;
@@ -153,6 +197,7 @@ export function ContestsAdmin({ contests }: { contests: Contest[] }) {
       renderForm={renderForm}
       onSave={saveContestAction}
       onDelete={deleteContestAction}
+      previewRow={previewRow}
     />
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { Bookmark, BookmarkCheck } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
@@ -10,12 +10,28 @@ import { toast } from "@/components/ui/Toaster";
 import { toggleSavedJobAction } from "@/lib/actions/saved-jobs";
 import type { Job } from "@/lib/data";
 
-/** Reusable job row. Used on the job board and the dashboard. */
+/**
+ * Reusable job row. Used on the job board and the dashboard. The parent page
+ * never reads the session server-side (so the page stays cacheable across all
+ * visitors); this self-hydrates the saved state after mount instead.
+ */
 export function JobCard({ job, initialSaved = false }: { job: Job; initialSaved?: boolean }) {
   const [saved, setSaved] = useState(initialSaved);
   const [pending, startTransition] = useTransition();
+  const touchedRef = useRef(false);
+
+  useEffect(() => {
+    fetch("/api/me/saved-jobs")
+      .then((res) => res.json())
+      .then((data: { slugs: string[] }) => {
+        if (touchedRef.current) return;
+        if (data.slugs.includes(job.id)) setSaved(true);
+      })
+      .catch(() => {});
+  }, [job.id]);
 
   function toggleSave() {
+    touchedRef.current = true;
     const next = !saved;
     setSaved(next); // optimistic
     startTransition(async () => {

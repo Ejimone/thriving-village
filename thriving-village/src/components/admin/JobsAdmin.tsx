@@ -4,14 +4,30 @@ import { Badge } from "@/components/ui/Badge";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
-import { AdminCrud, type AdminRow } from "@/components/admin/AdminCrud";
+import { AdminCrud, PENDING_NEW_ID, type AdminRow } from "@/components/admin/AdminCrud";
 import { saveJobAction, deleteJobAction } from "@/lib/actions/admin";
-import type { Job } from "@/lib/data";
+import type { Field, Job, LocationType } from "@/lib/data";
 
-export function JobsAdmin({ jobs }: { jobs: Job[] }) {
-  const byId = new Map(jobs.map((j) => [j.documentId, j]));
+const blankJob: Job = {
+  id: "",
+  documentId: "",
+  title: "",
+  org: "",
+  orgKind: "",
+  field: "Digital",
+  location: "",
+  locationType: "Remote",
+  type: "Full-time",
+  level: "Entry",
+  pay: "",
+  postedAgo: "",
+  summary: "",
+  responsibilities: [],
+  requirements: [],
+};
 
-  const rows: AdminRow[] = jobs.map((j) => ({
+function buildRow(j: Job): AdminRow {
+  return {
     id: j.documentId,
     label: j.title,
     cells: [
@@ -23,7 +39,28 @@ export function JobsAdmin({ jobs }: { jobs: Job[] }) {
       `${j.location} · ${j.locationType}`,
       j.pay,
     ],
-  }));
+  };
+}
+
+export function JobsAdmin({ jobs }: { jobs: Job[] }) {
+  const byId = new Map(jobs.map((j) => [j.documentId, j]));
+
+  const rows: AdminRow[] = jobs.map(buildRow);
+
+  function previewRow(documentId: string | null, formData: FormData): AdminRow {
+    const existing = documentId ? byId.get(documentId) : undefined;
+    const get = (k: string, fallback: string) => String(formData.get(k) ?? fallback);
+    return buildRow({
+      ...(existing ?? blankJob),
+      documentId: documentId ?? PENDING_NEW_ID,
+      title: get("title", existing?.title ?? ""),
+      org: get("org", existing?.org ?? ""),
+      field: get("field", existing?.field ?? "Digital") as Field,
+      location: get("location", existing?.location ?? ""),
+      locationType: get("locationType", existing?.locationType ?? "Remote") as LocationType,
+      pay: get("pay", existing?.pay ?? ""),
+    });
+  }
 
   function renderForm(documentId: string | null) {
     const job = documentId ? byId.get(documentId) : undefined;
@@ -128,6 +165,7 @@ export function JobsAdmin({ jobs }: { jobs: Job[] }) {
       renderForm={renderForm}
       onSave={saveJobAction}
       onDelete={deleteJobAction}
+      previewRow={previewRow}
     />
   );
 }

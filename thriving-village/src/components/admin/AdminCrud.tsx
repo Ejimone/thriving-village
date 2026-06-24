@@ -16,6 +16,9 @@ export type AdminRow = {
 
 type SaveResult = { error?: string; success?: boolean };
 
+/** Key used to overlay an optimistic preview row for an in-flight create (no real id yet). */
+export const PENDING_NEW_ID = "__pending_new__";
+
 /** Generic admin list with create / edit / delete, backed by real Server Actions. */
 export function AdminCrud({
   title,
@@ -27,6 +30,7 @@ export function AdminCrud({
   onSave,
   onDelete,
   noun,
+  previewRow,
 }: {
   title: string;
   subtitle: string;
@@ -39,10 +43,14 @@ export function AdminCrud({
   onDelete: (documentId: string) => Promise<SaveResult>;
   /** Singular noun for toasts, e.g. "job". */
   noun: string;
+  /** Optional: builds a preview row from the submitted form data, shown instantly while the real save is in flight. */
+  previewRow?: (documentId: string | null, formData: FormData) => AdminRow;
 }) {
   const [editing, setEditing] = useState<null | { kind: "new" } | { kind: "edit"; id: string }>(null);
   const formId = useId();
   const [deleting, startDelete] = useTransition();
+  const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
+  const [optimisticRows, setOptimisticRows] = useState<Map<string, AdminRow>>(new Map());
 
   const [state, formAction, pending] = useActionState<SaveResult, FormData>(
     async (_prev, formData) => onSave(editing?.kind === "edit" ? editing.id : null, formData),
@@ -50,24 +58,58 @@ export function AdminCrud({
   );
 
   useEffect(() => {
+    const key = editing?.kind === "edit" ? editing.id : PENDING_NEW_ID;
     if (state.success) {
       const wasNew = editing?.kind === "new";
       setEditing(null);
+      setOptimisticRows((m) => {
+        const next = new Map(m);
+        next.delete(key);
+        return next;
+      });
       toast.success(wasNew ? `New ${noun} created.` : `${noun[0].toUpperCase()}${noun.slice(1)} updated.`);
     } else if (state.error) {
+      setOptimisticRows((m) => {
+        const next = new Map(m);
+        next.delete(key);
+        return next;
+      });
       toast.error(state.error);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state]);
 
+  function handleFormSubmit(e: React.FormEvent<HTMLFormElement>) {
+    if (!previewRow) return;
+    const documentId = editing?.kind === "edit" ? editing.id : null;
+    const preview = previewRow(documentId, new FormData(e.currentTarget));
+    setOptimisticRows((m) => new Map(m).set(documentId ?? PENDING_NEW_ID, preview));
+    // No preventDefault — the form's `action` still runs onSave normally.
+  }
+
   function handleDelete(row: AdminRow) {
     if (!window.confirm(`Delete "${row.label}"? This can't be undone.`)) return;
+    setHiddenIds((s) => new Set(s).add(row.id)); // optimistic
     startDelete(async () => {
       const result = await onDelete(row.id);
-      if (result.error) toast.error(result.error);
-      else toast.success(`${noun[0].toUpperCase()}${noun.slice(1)} deleted.`);
+      if (result.error) {
+        setHiddenIds((s) => {
+          const next = new Set(s);
+          next.delete(row.id);
+          return next;
+        });
+        toast.error(result.error);
+      } else {
+        toast.success(`${noun[0].toUpperCase()}${noun.slice(1)} deleted.`);
+      }
     });
   }
+
+  const pendingNewRow = optimisticRows.get(PENDING_NEW_ID);
+  const displayRows = [
+    ...(pendingNewRow ? [pendingNewRow] : []),
+    ...rows.filter((r) => !hiddenIds.has(r.id)).map((r) => optimisticRows.get(r.id) ?? r),
+  ];
 
   return (
     <div className="flex flex-col gap-6">
@@ -107,42 +149,47 @@ export function AdminCrud({
             </tr>
           </thead>
           <tbody>
-            {rows.map((row) => (
-              <tr
-                key={row.id}
-                className="border-b border-gray-150 last:border-0 hover:bg-gray-50"
-              >
-                {row.cells.map((cell, i) => (
-                  <td
-                    key={i}
-                    className="px-5 py-4 text-[15px] text-gray-800 [letter-spacing:var(--tv-track-tight)]"
-                  >
-                    {cell}
+            {displayRows.map((row) => {
+              const isPendingNew = row.id === PENDING_NEW_ID;
+              return (
+                <tr
+                  key={row.id}
+                  className={`border-b border-gray-150 last:border-0 hover:bg-gray-50 ${isPendingNew ? "opacity-60" : ""}`}
+                >
+                  {row.cells.map((cell, i) => (
+                    <td
+                      key={i}
+                      className="px-5 py-4 text-[15px] text-gray-800 [letter-spacing:var(--tv-track-tight)]"
+                    >
+                      {cell}
+                    </td>
+                  ))}
+                  <td className="px-5 py-4">
+                    {!isPendingNew && (
+                      <div className="flex items-center justify-end gap-2">
+                        <IconButton
+                          variant="ghost"
+                          size="sm"
+                          aria-label={`Edit ${noun}`}
+                          onClick={() => setEditing({ kind: "edit", id: row.id })}
+                        >
+                          <Pencil size={16} />
+                        </IconButton>
+                        <IconButton
+                          variant="ghost"
+                          size="sm"
+                          aria-label={`Delete ${noun}`}
+                          disabled={deleting}
+                          onClick={() => handleDelete(row)}
+                        >
+                          <Trash2 size={16} />
+                        </IconButton>
+                      </div>
+                    )}
                   </td>
-                ))}
-                <td className="px-5 py-4">
-                  <div className="flex items-center justify-end gap-2">
-                    <IconButton
-                      variant="ghost"
-                      size="sm"
-                      aria-label={`Edit ${noun}`}
-                      onClick={() => setEditing({ kind: "edit", id: row.id })}
-                    >
-                      <Pencil size={16} />
-                    </IconButton>
-                    <IconButton
-                      variant="ghost"
-                      size="sm"
-                      aria-label={`Delete ${noun}`}
-                      disabled={deleting}
-                      onClick={() => handleDelete(row)}
-                    >
-                      <Trash2 size={16} />
-                    </IconButton>
-                  </div>
-                </td>
-              </tr>
-            ))}
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </Card>
@@ -163,7 +210,7 @@ export function AdminCrud({
         }
       >
         {editing && (
-          <form id={formId} action={formAction} className="flex flex-col gap-4">
+          <form id={formId} action={formAction} onSubmit={handleFormSubmit} className="flex flex-col gap-4">
             {renderForm(editing.kind === "edit" ? editing.id : null)}
           </form>
         )}
