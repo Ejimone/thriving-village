@@ -1,0 +1,54 @@
+{
+  "kind": "collectionType",
+  "collectionName": "academy_materials",
+  "info": {
+    "singularName": "academy-material",
+    "pluralName": "academy-materials",
+    "displayName": "Academy Material",
+    "description": "Admin-authored lesson material for one (course, day)"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "course": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::academy-course.academy-course",
+      "required": true
+    },
+    "day": {
+      "type": "integer",
+      "required": true
+    },
+    "text": {
+      "type": "text"
+    },
+    "externalVideoUrl": {
+      "type": "string"
+    },
+    "muxUploadId": {
+      "type": "string",
+      "private": true
+    },
+    "muxAssetId": {
+      "type": "string",
+      "private": true
+    },
+    "muxPlaybackId": {
+      "type": "string",
+      "private": true
+    },
+    "task": {
+      "type": "string"
+    },
+    "taskDetail": {
+      "type": "text"
+    },
+    "docs": {
+      "type": "json",
+      "default": []
+    }
+  }
+}

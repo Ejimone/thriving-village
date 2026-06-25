@@ -1,0 +1,36 @@
+{
+  "kind": "collectionType",
+  "collectionName": "academy_teams",
+  "info": {
+    "singularName": "academy-team",
+    "pluralName": "academy-teams",
+    "displayName": "Academy Team",
+    "description": "A group of students matched for a cohort's group assignment"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "cohort": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::academy-cohort.academy-cohort",
+      "inversedBy": "teams",
+      "required": true
+    },
+    "week": {
+      "type": "integer",
+      "required": true
+    },
+    "title": {
+      "type": "string",
+      "required": true
+    },
+    "members": {
+      "type": "relation",
+      "relation": "manyToMany",
+      "target": "plugin::users-permissions.user"
+    }
+  }
+}

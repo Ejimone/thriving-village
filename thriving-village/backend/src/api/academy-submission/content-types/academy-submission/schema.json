@@ -1,0 +1,66 @@
+{
+  "kind": "collectionType",
+  "collectionName": "academy_submissions",
+  "info": {
+    "singularName": "academy-submission",
+    "pluralName": "academy-submissions",
+    "displayName": "Academy Submission",
+    "description": "A student's submitted work for one day of an enrollment"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "enrollment": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::academy-enrollment.academy-enrollment",
+      "inversedBy": "submissions",
+      "required": true
+    },
+    "day": {
+      "type": "integer",
+      "required": true
+    },
+    "week": {
+      "type": "integer",
+      "required": true
+    },
+    "task": {
+      "type": "string",
+      "required": true
+    },
+    "courseTitle": {
+      "type": "string",
+      "required": true
+    },
+    "url": {
+      "type": "string",
+      "required": true
+    },
+    "note": {
+      "type": "text"
+    },
+    "submittedAt": {
+      "type": "datetime",
+      "required": true
+    },
+    "rated": {
+      "type": "boolean",
+      "required": true,
+      "default": false
+    },
+    "anonHandle": {
+      "type": "string",
+      "required": true,
+      "unique": true
+    },
+    "judgments": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::academy-judgment.academy-judgment",
+      "mappedBy": "submission"
+    }
+  }
+}

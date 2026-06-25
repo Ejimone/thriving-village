@@ -1,12 +1,32 @@
 import type { Core } from '@strapi/strapi';
 
 const config = ({ env }: Core.Config.Shared.ConfigParams): Core.Config.Plugin => ({
+  upload: {
+    config: {
+      provider: 'cloudinary',
+      providerOptions: {
+        cloud_name: env('CLOUDINARY_CLOUD_NAME'),
+        api_key: env('CLOUDINARY_API_KEY'),
+        api_secret: env('CLOUDINARY_API_SECRET'),
+      },
+      actionOptions: {
+        upload: {},
+        delete: {},
+      },
+    },
+  },
   'users-permissions': {
     config: {
       // dev/test environments hammer /auth/local repeatedly; keep the plugin's
       // default 5-requests-per-5-min IP rate limit for production but relax it locally.
       ratelimit: {
         enabled: env('NODE_ENV') === 'production',
+      },
+      // v5 defaults this to [] — the custom `name`/`whatsapp` fields on the user
+      // model (src/extensions/users-permissions/content-types/user/schema.json)
+      // won't be settable via POST /auth/local/register without this.
+      register: {
+        allowedFields: ['name', 'whatsapp'],
       },
     },
   },

@@ -11,6 +11,16 @@ export async function resolveSlugParam(strapi: any, uid: string, ctx: any, slugF
   if (record) ctx.params.id = record.documentId;
 }
 
+// Strapi v5's core CRUD routes hand the client a `documentId` as the primary
+// identifier (in list/create responses) and resolve :id route params against
+// it, but hand-written custom routes/policies on the same resource have
+// queried by the numeric `id` directly — a raw `db.query` `where: { id }`
+// throws a Postgres type error (surfaced as a 500) if a documentId-shaped
+// string ever lands there instead. Accept either.
+export function idOrDocumentIdWhere(id: string | number): { id: number } | { documentId: string } {
+  return /^\d+$/.test(String(id)) ? { id: Number(id) } : { documentId: String(id) };
+}
+
 // Strapi's REST query validator rejects filters on relations that target
 // plugin::users-permissions.user (e.g. `?filters[user][id]=1`) for security
 // reasons, so "find my own records" can't go through super.find(ctx) with an

@@ -440,6 +440,485 @@ export interface AdminUser extends Struct.CollectionTypeSchema {
   };
 }
 
+export interface ApiAcademyCategoryAcademyCategory
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'academy_categories';
+  info: {
+    description: 'A top-level Academy catalogue category (AI & Data, Development, etc.)';
+    displayName: 'Academy Category';
+    pluralName: 'academy-categories';
+    singularName: 'academy-category';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    blurb: Schema.Attribute.Text & Schema.Attribute.Required;
+    courses: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::academy-course.academy-course'
+    >;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::academy-category.academy-category'
+    > &
+      Schema.Attribute.Private;
+    name: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Unique;
+    publishedAt: Schema.Attribute.DateTime;
+    slug: Schema.Attribute.UID<'name'> & Schema.Attribute.Required;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiAcademyCertificateAcademyCertificate
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'academy_certificates';
+  info: {
+    description: 'A verifiable certificate record issued on course completion';
+    displayName: 'Academy Certificate';
+    pluralName: 'academy-certificates';
+    singularName: 'academy-certificate';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    cohortNameSnapshot: Schema.Attribute.String & Schema.Attribute.Required;
+    courseTitleSnapshot: Schema.Attribute.String & Schema.Attribute.Required;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    enrollment: Schema.Attribute.Relation<
+      'oneToOne',
+      'api::academy-enrollment.academy-enrollment'
+    > &
+      Schema.Attribute.Required;
+    issuedAt: Schema.Attribute.DateTime & Schema.Attribute.Required;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::academy-certificate.academy-certificate'
+    > &
+      Schema.Attribute.Private;
+    pdfUrl: Schema.Attribute.String;
+    publishedAt: Schema.Attribute.DateTime;
+    studentNameSnapshot: Schema.Attribute.String & Schema.Attribute.Required;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    verificationCode: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Unique;
+  };
+}
+
+export interface ApiAcademyCohortAcademyCohort
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'academy_cohorts';
+  info: {
+    description: 'A scheduled run of an Academy course, owned by one facilitator';
+    displayName: 'Academy Cohort';
+    pluralName: 'academy-cohorts';
+    singularName: 'academy-cohort';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    checkWeeks: Schema.Attribute.JSON &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<[4, 8]>;
+    course: Schema.Attribute.Relation<
+      'manyToOne',
+      'api::academy-course.academy-course'
+    > &
+      Schema.Attribute.Required;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    daysTotal: Schema.Attribute.Integer & Schema.Attribute.Required;
+    enrollments: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::academy-enrollment.academy-enrollment'
+    >;
+    facilitator: Schema.Attribute.Relation<
+      'manyToOne',
+      'plugin::users-permissions.user'
+    > &
+      Schema.Attribute.Required;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::academy-cohort.academy-cohort'
+    > &
+      Schema.Attribute.Private;
+    minCompletion: Schema.Attribute.Integer &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<60>;
+    name: Schema.Attribute.String & Schema.Attribute.Required;
+    publishedAt: Schema.Attribute.DateTime;
+    releasedWeek: Schema.Attribute.Integer &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<0>;
+    sessions: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::academy-live-session.academy-live-session'
+    >;
+    startDate: Schema.Attribute.Date & Schema.Attribute.Required;
+    status: Schema.Attribute.Enumeration<
+      ['Enrolling', 'Running', 'Completed']
+    > &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<'Enrolling'>;
+    teams: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::academy-team.academy-team'
+    >;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    weeksTotal: Schema.Attribute.Integer & Schema.Attribute.Required;
+  };
+}
+
+export interface ApiAcademyCourseAcademyCourse
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'academy_courses';
+  info: {
+    description: 'A course in the Academy catalogue (distinct from the main-site marketplace `course`)';
+    displayName: 'Academy Course';
+    pluralName: 'academy-courses';
+    singularName: 'academy-course';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    category: Schema.Attribute.Relation<
+      'manyToOne',
+      'api::academy-category.academy-category'
+    >;
+    certificate: Schema.Attribute.Boolean &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<false>;
+    cohorts: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::academy-cohort.academy-cohort'
+    >;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    daysTotal: Schema.Attribute.Integer & Schema.Attribute.Required;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::academy-course.academy-course'
+    > &
+      Schema.Attribute.Private;
+    months: Schema.Attribute.Integer & Schema.Attribute.Required;
+    publishedAt: Schema.Attribute.DateTime;
+    slug: Schema.Attribute.UID<'title'> & Schema.Attribute.Required;
+    title: Schema.Attribute.String & Schema.Attribute.Required;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    weeksTotal: Schema.Attribute.Integer & Schema.Attribute.Required;
+  };
+}
+
+export interface ApiAcademyEnrollmentAcademyEnrollment
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'academy_enrollments';
+  info: {
+    description: "A student's progression state within one cohort (distinct from the main-site marketplace `enrollment`)";
+    displayName: 'Academy Enrollment';
+    pluralName: 'academy-enrollments';
+    singularName: 'academy-enrollment';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    cohort: Schema.Attribute.Relation<
+      'manyToOne',
+      'api::academy-cohort.academy-cohort'
+    > &
+      Schema.Attribute.Required;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    currentDay: Schema.Attribute.Integer &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<1>;
+    earlyAccessRequested: Schema.Attribute.Boolean &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<false>;
+    earlyWeeks: Schema.Attribute.JSON &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<[]>;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::academy-enrollment.academy-enrollment'
+    > &
+      Schema.Attribute.Private;
+    publishedAt: Schema.Attribute.DateTime;
+    removed: Schema.Attribute.Boolean &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<false>;
+    shortlisted: Schema.Attribute.Boolean &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<false>;
+    status: Schema.Attribute.Enumeration<
+      ['In progress', 'Starting soon', 'Completed']
+    > &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<'Starting soon'>;
+    submissions: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::academy-submission.academy-submission'
+    >;
+    submittedDays: Schema.Attribute.JSON &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<[]>;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    user: Schema.Attribute.Relation<
+      'manyToOne',
+      'plugin::users-permissions.user'
+    > &
+      Schema.Attribute.Required;
+  };
+}
+
+export interface ApiAcademyJudgmentAcademyJudgment
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'academy_judgments';
+  info: {
+    description: "A judge's anonymous rating of one submission";
+    displayName: 'Academy Judgment';
+    pluralName: 'academy-judgments';
+    singularName: 'academy-judgment';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    average: Schema.Attribute.Decimal & Schema.Attribute.Required;
+    brief: Schema.Attribute.Integer & Schema.Attribute.Required;
+    craft: Schema.Attribute.Integer & Schema.Attribute.Required;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    feedback: Schema.Attribute.Text & Schema.Attribute.Required;
+    judge: Schema.Attribute.Relation<
+      'manyToOne',
+      'plugin::users-permissions.user'
+    > &
+      Schema.Attribute.Required &
+      Schema.Attribute.Private;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::academy-judgment.academy-judgment'
+    > &
+      Schema.Attribute.Private;
+    originality: Schema.Attribute.Integer & Schema.Attribute.Required;
+    publishedAt: Schema.Attribute.DateTime;
+    submission: Schema.Attribute.Relation<
+      'manyToOne',
+      'api::academy-submission.academy-submission'
+    > &
+      Schema.Attribute.Required;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiAcademyLiveSessionAcademyLiveSession
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'academy_live_sessions';
+  info: {
+    description: 'A scheduled live call or workshop for a cohort';
+    displayName: 'Academy Live Session';
+    pluralName: 'academy-live-sessions';
+    singularName: 'academy-live-session';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    cohort: Schema.Attribute.Relation<
+      'manyToOne',
+      'api::academy-cohort.academy-cohort'
+    > &
+      Schema.Attribute.Required;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    day: Schema.Attribute.String & Schema.Attribute.Required;
+    host: Schema.Attribute.String & Schema.Attribute.Required;
+    link: Schema.Attribute.String;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::academy-live-session.academy-live-session'
+    > &
+      Schema.Attribute.Private;
+    publishedAt: Schema.Attribute.DateTime;
+    time: Schema.Attribute.String & Schema.Attribute.Required;
+    title: Schema.Attribute.String & Schema.Attribute.Required;
+    type: Schema.Attribute.Enumeration<['Live call', 'Workshop']> &
+      Schema.Attribute.Required;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiAcademyMaterialAcademyMaterial
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'academy_materials';
+  info: {
+    description: 'Admin-authored lesson material for one (course, day)';
+    displayName: 'Academy Material';
+    pluralName: 'academy-materials';
+    singularName: 'academy-material';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    course: Schema.Attribute.Relation<
+      'manyToOne',
+      'api::academy-course.academy-course'
+    > &
+      Schema.Attribute.Required;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    day: Schema.Attribute.Integer & Schema.Attribute.Required;
+    docs: Schema.Attribute.JSON & Schema.Attribute.DefaultTo<[]>;
+    externalVideoUrl: Schema.Attribute.String;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::academy-material.academy-material'
+    > &
+      Schema.Attribute.Private;
+    muxAssetId: Schema.Attribute.String & Schema.Attribute.Private;
+    muxPlaybackId: Schema.Attribute.String & Schema.Attribute.Private;
+    muxUploadId: Schema.Attribute.String & Schema.Attribute.Private;
+    publishedAt: Schema.Attribute.DateTime;
+    task: Schema.Attribute.String;
+    taskDetail: Schema.Attribute.Text;
+    text: Schema.Attribute.Text;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiAcademySubmissionAcademySubmission
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'academy_submissions';
+  info: {
+    description: "A student's submitted work for one day of an enrollment";
+    displayName: 'Academy Submission';
+    pluralName: 'academy-submissions';
+    singularName: 'academy-submission';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    anonHandle: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Unique;
+    courseTitle: Schema.Attribute.String & Schema.Attribute.Required;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    day: Schema.Attribute.Integer & Schema.Attribute.Required;
+    enrollment: Schema.Attribute.Relation<
+      'manyToOne',
+      'api::academy-enrollment.academy-enrollment'
+    > &
+      Schema.Attribute.Required;
+    judgments: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::academy-judgment.academy-judgment'
+    >;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::academy-submission.academy-submission'
+    > &
+      Schema.Attribute.Private;
+    note: Schema.Attribute.Text;
+    publishedAt: Schema.Attribute.DateTime;
+    rated: Schema.Attribute.Boolean &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<false>;
+    submittedAt: Schema.Attribute.DateTime & Schema.Attribute.Required;
+    task: Schema.Attribute.String & Schema.Attribute.Required;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    url: Schema.Attribute.String & Schema.Attribute.Required;
+    week: Schema.Attribute.Integer & Schema.Attribute.Required;
+  };
+}
+
+export interface ApiAcademyTeamAcademyTeam extends Struct.CollectionTypeSchema {
+  collectionName: 'academy_teams';
+  info: {
+    description: "A group of students matched for a cohort's group assignment";
+    displayName: 'Academy Team';
+    pluralName: 'academy-teams';
+    singularName: 'academy-team';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    cohort: Schema.Attribute.Relation<
+      'manyToOne',
+      'api::academy-cohort.academy-cohort'
+    > &
+      Schema.Attribute.Required;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::academy-team.academy-team'
+    > &
+      Schema.Attribute.Private;
+    members: Schema.Attribute.Relation<
+      'manyToMany',
+      'plugin::users-permissions.user'
+    >;
+    publishedAt: Schema.Attribute.DateTime;
+    title: Schema.Attribute.String & Schema.Attribute.Required;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    week: Schema.Attribute.Integer & Schema.Attribute.Required;
+  };
+}
+
 export interface ApiActivityLogActivityLog extends Struct.CollectionTypeSchema {
   collectionName: 'activity_logs';
   info: {
@@ -455,7 +934,18 @@ export interface ApiActivityLogActivityLog extends Struct.CollectionTypeSchema {
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
     kind: Schema.Attribute.Enumeration<
-      ['application', 'entry', 'enrollment', 'save']
+      [
+        'application',
+        'entry',
+        'enrollment',
+        'save',
+        'rollout',
+        'early-access',
+        'gate-action',
+        'judgment',
+        'team-match',
+        'certificate-issued',
+      ]
     > &
       Schema.Attribute.Required;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
@@ -1413,6 +1903,7 @@ export interface PluginUsersPermissionsUser
       'plugin::users-permissions.user'
     > &
       Schema.Attribute.Private;
+    name: Schema.Attribute.String;
     password: Schema.Attribute.Password &
       Schema.Attribute.Private &
       Schema.Attribute.SetMinMaxLength<{
@@ -1434,6 +1925,7 @@ export interface PluginUsersPermissionsUser
       Schema.Attribute.SetMinMaxLength<{
         minLength: 3;
       }>;
+    whatsapp: Schema.Attribute.String;
   };
 }
 
@@ -1448,6 +1940,16 @@ declare module '@strapi/strapi' {
       'admin::transfer-token': AdminTransferToken;
       'admin::transfer-token-permission': AdminTransferTokenPermission;
       'admin::user': AdminUser;
+      'api::academy-category.academy-category': ApiAcademyCategoryAcademyCategory;
+      'api::academy-certificate.academy-certificate': ApiAcademyCertificateAcademyCertificate;
+      'api::academy-cohort.academy-cohort': ApiAcademyCohortAcademyCohort;
+      'api::academy-course.academy-course': ApiAcademyCourseAcademyCourse;
+      'api::academy-enrollment.academy-enrollment': ApiAcademyEnrollmentAcademyEnrollment;
+      'api::academy-judgment.academy-judgment': ApiAcademyJudgmentAcademyJudgment;
+      'api::academy-live-session.academy-live-session': ApiAcademyLiveSessionAcademyLiveSession;
+      'api::academy-material.academy-material': ApiAcademyMaterialAcademyMaterial;
+      'api::academy-submission.academy-submission': ApiAcademySubmissionAcademySubmission;
+      'api::academy-team.academy-team': ApiAcademyTeamAcademyTeam;
       'api::activity-log.activity-log': ApiActivityLogActivityLog;
       'api::brand.brand': ApiBrandBrand;
       'api::contest-entry.contest-entry': ApiContestEntryContestEntry;

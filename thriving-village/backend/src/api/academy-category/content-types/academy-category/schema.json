@@ -1,0 +1,36 @@
+{
+  "kind": "collectionType",
+  "collectionName": "academy_categories",
+  "info": {
+    "singularName": "academy-category",
+    "pluralName": "academy-categories",
+    "displayName": "Academy Category",
+    "description": "A top-level Academy catalogue category (AI & Data, Development, etc.)"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "name": {
+      "type": "string",
+      "required": true,
+      "unique": true
+    },
+    "slug": {
+      "type": "uid",
+      "targetField": "name",
+      "required": true
+    },
+    "blurb": {
+      "type": "text",
+      "required": true
+    },
+    "courses": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::academy-course.academy-course",
+      "mappedBy": "category"
+    }
+  }
+}

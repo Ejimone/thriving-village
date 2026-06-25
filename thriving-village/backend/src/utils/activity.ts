@@ -5,7 +5,21 @@
  */
 export async function logActivity(
   strapi: any,
-  entry: { who: string; what: string; kind: 'application' | 'entry' | 'enrollment' },
+  entry: {
+    who: string;
+    what: string;
+    kind:
+      | 'application'
+      | 'entry'
+      | 'enrollment'
+      | 'save'
+      | 'rollout'
+      | 'early-access'
+      | 'gate-action'
+      | 'judgment'
+      | 'team-match'
+      | 'certificate-issued';
+  },
 ): Promise<void> {
   const occurredAt = new Date();
   await strapi.db.query('api::activity-log.activity-log').create({

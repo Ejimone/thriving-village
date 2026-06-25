@@ -21,7 +21,18 @@
     },
     "kind": {
       "type": "enumeration",
-      "enum": ["application", "entry", "enrollment", "save"],
+      "enum": [
+        "application",
+        "entry",
+        "enrollment",
+        "save",
+        "rollout",
+        "early-access",
+        "gate-action",
+        "judgment",
+        "team-match",
+        "certificate-issued"
+      ],
       "required": true
     },
     "occurredAt": {

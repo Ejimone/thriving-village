@@ -15,7 +15,16 @@ const config: Core.Config.Middlewares = [
   'strapi::cors',
   'strapi::poweredBy',
   'strapi::query',
-  'strapi::body',
+  {
+    name: 'strapi::body',
+    config: {
+      // Mux webhook signature verification needs the exact raw bytes — this
+      // adds the raw buffer alongside the normally-parsed body for every
+      // route (only the mux-webhook handler reads it), it doesn't change
+      // parsing behavior anywhere else.
+      includeUnparsed: true,
+    },
+  },
   'strapi::session',
   'strapi::favicon',
   'strapi::public',

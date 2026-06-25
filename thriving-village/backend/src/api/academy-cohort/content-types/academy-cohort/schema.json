@@ -1,0 +1,84 @@
+{
+  "kind": "collectionType",
+  "collectionName": "academy_cohorts",
+  "info": {
+    "singularName": "academy-cohort",
+    "pluralName": "academy-cohorts",
+    "displayName": "Academy Cohort",
+    "description": "A scheduled run of an Academy course, owned by one facilitator"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "name": {
+      "type": "string",
+      "required": true
+    },
+    "course": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::academy-course.academy-course",
+      "inversedBy": "cohorts",
+      "required": true
+    },
+    "facilitator": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::users-permissions.user",
+      "required": true
+    },
+    "weeksTotal": {
+      "type": "integer",
+      "required": true
+    },
+    "daysTotal": {
+      "type": "integer",
+      "required": true
+    },
+    "startDate": {
+      "type": "date",
+      "required": true
+    },
+    "status": {
+      "type": "enumeration",
+      "enum": ["Enrolling", "Running", "Completed"],
+      "default": "Enrolling",
+      "required": true
+    },
+    "releasedWeek": {
+      "type": "integer",
+      "required": true,
+      "default": 0
+    },
+    "minCompletion": {
+      "type": "integer",
+      "required": true,
+      "default": 60
+    },
+    "checkWeeks": {
+      "type": "json",
+      "required": true,
+      "default": [4, 8]
+    },
+    "enrollments": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::academy-enrollment.academy-enrollment",
+      "mappedBy": "cohort"
+    },
+    "sessions": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::academy-live-session.academy-live-session",
+      "mappedBy": "cohort"
+    },
+    "teams": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::academy-team.academy-team",
+      "mappedBy": "cohort"
+    }
+  }
+}

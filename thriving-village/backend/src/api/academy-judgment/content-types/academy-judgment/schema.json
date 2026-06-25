@@ -1,0 +1,50 @@
+{
+  "kind": "collectionType",
+  "collectionName": "academy_judgments",
+  "info": {
+    "singularName": "academy-judgment",
+    "pluralName": "academy-judgments",
+    "displayName": "Academy Judgment",
+    "description": "A judge's anonymous rating of one submission"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "submission": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::academy-submission.academy-submission",
+      "inversedBy": "judgments",
+      "required": true
+    },
+    "judge": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::users-permissions.user",
+      "required": true,
+      "private": true
+    },
+    "brief": {
+      "type": "integer",
+      "required": true
+    },
+    "craft": {
+      "type": "integer",
+      "required": true
+    },
+    "originality": {
+      "type": "integer",
+      "required": true
+    },
+    "average": {
+      "type": "decimal",
+      "required": true
+    },
+    "feedback": {
+      "type": "text",
+      "required": true
+    }
+  }
+}

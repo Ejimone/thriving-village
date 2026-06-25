@@ -1,0 +1,54 @@
+{
+  "kind": "collectionType",
+  "collectionName": "academy_courses",
+  "info": {
+    "singularName": "academy-course",
+    "pluralName": "academy-courses",
+    "displayName": "Academy Course",
+    "description": "A course in the Academy catalogue (distinct from the main-site marketplace `course`)"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "title": {
+      "type": "string",
+      "required": true
+    },
+    "slug": {
+      "type": "uid",
+      "targetField": "title",
+      "required": true
+    },
+    "category": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::academy-category.academy-category",
+      "inversedBy": "courses"
+    },
+    "months": {
+      "type": "integer",
+      "required": true
+    },
+    "certificate": {
+      "type": "boolean",
+      "required": true,
+      "default": false
+    },
+    "weeksTotal": {
+      "type": "integer",
+      "required": true
+    },
+    "daysTotal": {
+      "type": "integer",
+      "required": true
+    },
+    "cohorts": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::academy-cohort.academy-cohort",
+      "mappedBy": "course"
+    }
+  }
+}

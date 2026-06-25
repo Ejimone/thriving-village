@@ -1,0 +1,46 @@
+{
+  "kind": "collectionType",
+  "collectionName": "academy_certificates",
+  "info": {
+    "singularName": "academy-certificate",
+    "pluralName": "academy-certificates",
+    "displayName": "Academy Certificate",
+    "description": "A verifiable certificate record issued on course completion"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "enrollment": {
+      "type": "relation",
+      "relation": "oneToOne",
+      "target": "api::academy-enrollment.academy-enrollment",
+      "required": true
+    },
+    "verificationCode": {
+      "type": "string",
+      "required": true,
+      "unique": true
+    },
+    "issuedAt": {
+      "type": "datetime",
+      "required": true
+    },
+    "studentNameSnapshot": {
+      "type": "string",
+      "required": true
+    },
+    "courseTitleSnapshot": {
+      "type": "string",
+      "required": true
+    },
+    "cohortNameSnapshot": {
+      "type": "string",
+      "required": true
+    },
+    "pdfUrl": {
+      "type": "string"
+    }
+  }
+}

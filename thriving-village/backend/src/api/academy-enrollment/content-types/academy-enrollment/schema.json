@@ -1,0 +1,71 @@
+{
+  "kind": "collectionType",
+  "collectionName": "academy_enrollments",
+  "info": {
+    "singularName": "academy-enrollment",
+    "pluralName": "academy-enrollments",
+    "displayName": "Academy Enrollment",
+    "description": "A student's progression state within one cohort (distinct from the main-site marketplace `enrollment`)"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "user": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::users-permissions.user",
+      "required": true
+    },
+    "cohort": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::academy-cohort.academy-cohort",
+      "inversedBy": "enrollments",
+      "required": true
+    },
+    "status": {
+      "type": "enumeration",
+      "enum": ["In progress", "Starting soon", "Completed"],
+      "default": "Starting soon",
+      "required": true
+    },
+    "currentDay": {
+      "type": "integer",
+      "required": true,
+      "default": 1
+    },
+    "submittedDays": {
+      "type": "json",
+      "required": true,
+      "default": []
+    },
+    "earlyAccessRequested": {
+      "type": "boolean",
+      "required": true,
+      "default": false
+    },
+    "earlyWeeks": {
+      "type": "json",
+      "required": true,
+      "default": []
+    },
+    "removed": {
+      "type": "boolean",
+      "required": true,
+      "default": false
+    },
+    "shortlisted": {
+      "type": "boolean",
+      "required": true,
+      "default": false
+    },
+    "submissions": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::academy-submission.academy-submission",
+      "mappedBy": "enrollment"
+    }
+  }
+}

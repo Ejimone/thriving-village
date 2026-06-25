@@ -3,7 +3,10 @@ type Strapi = any;
 const ROLES: Array<{ type: string; name: string; description: string }> = [
   { type: 'talent', name: 'Talent', description: 'Signed-up community member applying/entering/enrolling.' },
   { type: 'employer', name: 'Employer', description: 'Signed-up employer/brand account. Same access as Talent for now.' },
-  { type: 'admin', name: 'Admin', description: 'Community admin: full catalog CRUD + dashboard access.' },
+  { type: 'admin', name: 'Admin', description: 'Community admin: full catalog CRUD + dashboard access. Also full Academy access.' },
+  { type: 'student', name: 'Student', description: 'Academy learner: enrolled in cohorts, submits daily work.' },
+  { type: 'facilitator', name: 'Facilitator', description: 'Academy facilitator: runs their own cohorts only.' },
+  { type: 'judge', name: 'Judge', description: 'Academy judge: rates anonymized submissions only.' },
 ];
 
 const PUBLIC_READ = [
@@ -21,6 +24,106 @@ const PUBLIC_READ = [
   'api::brand.brand.findOne',
   'api::testimonial.testimonial.find',
   'api::testimonial.testimonial.findOne',
+];
+
+// Academy catalogue browsing + certificate verification are intentionally
+// public (pre-signup browsing, publicly-verifiable certificates) — folded
+// into PUBLIC_READ so talent/employer (which spread PUBLIC_READ) get it too.
+const ACADEMY_PUBLIC = [
+  'api::academy-category.academy-category.find',
+  'api::academy-category.academy-category.findOne',
+  'api::academy-course.academy-course.find',
+  'api::academy-course.academy-course.findOne',
+  'api::academy-course.academy-course.curriculum',
+  'api::academy-certificate.academy-certificate.verify',
+];
+PUBLIC_READ.push(...ACADEMY_PUBLIC);
+
+// The Mux webhook is unauthenticated by route config (`auth: false`) — Mux's
+// own signature check inside the handler is the real security boundary, not
+// this permission grant — but it still needs to be reachable by an anonymous
+// caller, so it's granted to `public` like the plugin's own register route.
+PUBLIC_READ.push('api::mux-webhook.mux-webhook.handle');
+
+const ACADEMY_STUDENT_ACTIONS = [
+  ...ACADEMY_PUBLIC,
+  'api::academy-enrollment.academy-enrollment.find',
+  'api::academy-enrollment.academy-enrollment.findOne',
+  'api::academy-enrollment.academy-enrollment.submitTask',
+  'api::academy-enrollment.academy-enrollment.listSubmissions',
+  'api::academy-enrollment.academy-enrollment.requestEarlyAccess',
+  'api::academy-enrollment.academy-enrollment.team',
+  'api::academy-material.academy-material.find',
+  'api::academy-material.academy-material.getPlaybackToken',
+  'api::academy-cohort.academy-cohort.sessionsFind',
+  'api::me.me.whoami',
+];
+
+const ACADEMY_FACILITATOR_ACTIONS = [
+  ...ACADEMY_PUBLIC,
+  'api::academy-cohort.academy-cohort.myCohorts',
+  'api::academy-cohort.academy-cohort.roster',
+  'api::academy-cohort.academy-cohort.studentProfile',
+  'api::academy-cohort.academy-cohort.topRated',
+  'api::academy-cohort.academy-cohort.shortlistToggle',
+  'api::academy-cohort.academy-cohort.removeStudent',
+  'api::academy-cohort.academy-cohort.restoreStudent',
+  'api::academy-cohort.academy-cohort.removeBulk',
+  'api::academy-cohort.academy-cohort.transferStudent',
+  'api::academy-cohort.academy-cohort.transferBulk',
+  'api::academy-cohort.academy-cohort.getThreshold',
+  'api::academy-cohort.academy-cohort.putThreshold',
+  'api::academy-cohort.academy-cohort.rolloutNextWeek',
+  'api::academy-cohort.academy-cohort.earlyAccessRequests',
+  'api::academy-cohort.academy-cohort.sessionsFind',
+  'api::academy-cohort.academy-cohort.sessionsCreate',
+  'api::academy-cohort.academy-cohort.teamsMatch',
+  'api::academy-cohort.academy-cohort.teamsCreate',
+  'api::academy-cohort.academy-cohort.teamsClear',
+  'api::academy-cohort.academy-cohort.teamsGet',
+  'api::academy-team.academy-team.renameTeam',
+  'api::academy-team.academy-team.deleteTeam',
+  'api::academy-team.academy-team.addMember',
+  'api::academy-team.academy-team.removeMember',
+  'api::academy-enrollment.academy-enrollment.grantEarlyAccess',
+  'api::academy-material.academy-material.find',
+  'api::me.me.whoami',
+];
+
+const ACADEMY_JUDGE_ACTIONS = [
+  'api::academy-submission.academy-submission.judgeQueue',
+  'api::academy-submission.academy-submission.rate',
+  'api::me.me.whoami',
+];
+
+const ACADEMY_ADMIN_EXTRA_ACTIONS = [
+  ...ACADEMY_PUBLIC,
+  'api::academy-category.academy-category.create',
+  'api::academy-category.academy-category.update',
+  'api::academy-category.academy-category.delete',
+  'api::academy-course.academy-course.create',
+  'api::academy-course.academy-course.update',
+  'api::academy-course.academy-course.delete',
+  'api::academy-material.academy-material.find',
+  'api::academy-material.academy-material.put',
+  'api::academy-material.academy-material.delete',
+  'api::academy-material.academy-material.muxUploadUrl',
+  'api::academy-material.academy-material.getPlaybackToken',
+  'api::academy-cohort.academy-cohort.find',
+  'api::academy-cohort.academy-cohort.findOne',
+  'api::academy-cohort.academy-cohort.create',
+  'api::academy-cohort.academy-cohort.update',
+  'api::academy-cohort.academy-cohort.delete',
+  'api::academy-enrollment.academy-enrollment.find',
+  'api::academy-enrollment.academy-enrollment.findOne',
+  'api::academy-enrollment.academy-enrollment.create',
+  'api::academy-enrollment.academy-enrollment.update',
+  'api::academy-enrollment.academy-enrollment.delete',
+  ...ACADEMY_FACILITATOR_ACTIONS.filter((a) => !ACADEMY_PUBLIC.includes(a)),
+  'api::academy-admin.academy-admin.overview',
+  'api::academy-admin.academy-admin.topRated',
+  'api::academy-admin.academy-admin.activity',
+  'api::academy-admin.academy-admin.users',
 ];
 
 const TALENT_ACTIONS = [
@@ -86,7 +189,12 @@ const ROLE_ACTIONS: Record<string, string[]> = {
   public: PUBLIC_READ,
   talent: TALENT_ACTIONS,
   employer: TALENT_ACTIONS,
-  admin: ADMIN_ACTIONS,
+  // Academy admin reuses the main-site admin role — one platform-admin login
+  // gets full access to both domains (confirmed product decision).
+  admin: [...ADMIN_ACTIONS, ...ACADEMY_ADMIN_EXTRA_ACTIONS],
+  student: ACADEMY_STUDENT_ACTIONS,
+  facilitator: ACADEMY_FACILITATOR_ACTIONS,
+  judge: ACADEMY_JUDGE_ACTIONS,
 };
 
 // Plugin-owned actions (login, register, "who am I") that must stay available
@@ -101,7 +209,16 @@ const PLUGIN_ESSENTIALS: Record<string, string[]> = {
   ],
   talent: ['plugin::users-permissions.user.me'],
   employer: ['plugin::users-permissions.user.me'],
-  admin: ['plugin::users-permissions.user.me'],
+  // `.user.find` is required for admin to write any relation field that targets
+  // plugin::users-permissions.user (e.g. academy-cohort.facilitator,
+  // academy-enrollment.user) — Strapi's core create/update actions check the
+  // caller has `find` on a relation's target type before allowing the write,
+  // throwing "Invalid key <field>" otherwise. Not granted to other roles since
+  // it also backs GET /api/users (full user enumeration).
+  admin: ['plugin::users-permissions.user.me', 'plugin::users-permissions.user.find'],
+  student: ['plugin::users-permissions.user.me'],
+  facilitator: ['plugin::users-permissions.user.me'],
+  judge: ['plugin::users-permissions.user.me'],
 };
 
 async function ensureRole(strapi: Strapi, role: { type: string; name: string; description: string }) {

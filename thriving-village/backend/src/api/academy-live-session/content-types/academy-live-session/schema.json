@@ -1,0 +1,47 @@
+{
+  "kind": "collectionType",
+  "collectionName": "academy_live_sessions",
+  "info": {
+    "singularName": "academy-live-session",
+    "pluralName": "academy-live-sessions",
+    "displayName": "Academy Live Session",
+    "description": "A scheduled live call or workshop for a cohort"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "cohort": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::academy-cohort.academy-cohort",
+      "inversedBy": "sessions",
+      "required": true
+    },
+    "title": {
+      "type": "string",
+      "required": true
+    },
+    "type": {
+      "type": "enumeration",
+      "enum": ["Live call", "Workshop"],
+      "required": true
+    },
+    "day": {
+      "type": "string",
+      "required": true
+    },
+    "time": {
+      "type": "string",
+      "required": true
+    },
+    "host": {
+      "type": "string",
+      "required": true
+    },
+    "link": {
+      "type": "string"
+    }
+  }
+}
