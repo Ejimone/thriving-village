@@ -85,6 +85,8 @@ const ACADEMY_FACILITATOR_ACTIONS = [
   'api::academy-team.academy-team.deleteTeam',
   'api::academy-team.academy-team.addMember',
   'api::academy-team.academy-team.removeMember',
+  'api::academy-cohort.academy-cohort.rosterRequestCreate',
+  'api::academy-cohort.academy-cohort.rosterRequestsFind',
   'api::academy-enrollment.academy-enrollment.grantEarlyAccess',
   'api::academy-material.academy-material.find',
   'api::me.me.whoami',
@@ -124,6 +126,10 @@ const ACADEMY_ADMIN_EXTRA_ACTIONS = [
   'api::academy-admin.academy-admin.topRated',
   'api::academy-admin.academy-admin.activity',
   'api::academy-admin.academy-admin.users',
+  'api::academy-admin.academy-admin.createUser',
+  'api::academy-admin.academy-admin.updateUserRole',
+  'api::academy-admin.academy-admin.rosterRequests',
+  'api::academy-roster-request.academy-roster-request.updateStatus',
 ];
 
 const TALENT_ACTIONS = [

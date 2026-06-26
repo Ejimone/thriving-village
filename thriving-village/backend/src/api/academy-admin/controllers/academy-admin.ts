@@ -1,4 +1,5 @@
 import { cached } from '../../../utils/cache';
+import { shapeRosterRequest } from '../../../utils/roster-request';
 
 const ACADEMY_KINDS = ['rollout', 'early-access', 'gate-action', 'judgment', 'team-match', 'certificate-issued'];
 const ACADEMY_ROLES = ['Student', 'Facilitator', 'Judge', 'Admin'];
@@ -55,23 +56,103 @@ export default {
   },
 
   // Name-searchable picker backing admin forms (assign a facilitator to a
-  // cohort, enroll a student) — replaces raw "type a user ID" inputs.
+  // cohort, enroll a student, change a role) — replaces raw "type a user ID"
+  // inputs. `role` is optional: omit it to search across all 4 Academy roles
+  // at once (deliberately excludes Talent/Employer — this is an Academy tool).
   async users(ctx: any) {
     const { role, search } = ctx.query as { role?: string; search?: string };
-    if (!role || !ACADEMY_ROLES.includes(role)) {
-      return ctx.badRequest(`role is required and must be one of: ${ACADEMY_ROLES.join(', ')}`);
+    if (role && !ACADEMY_ROLES.includes(role)) {
+      return ctx.badRequest(`role must be one of: ${ACADEMY_ROLES.join(', ')}`);
     }
 
-    const where: any = { role: { type: role.toLowerCase() } };
+    const where: any = role
+      ? { role: { type: role.toLowerCase() } }
+      : { role: { type: { $in: ACADEMY_ROLES.map((r) => r.toLowerCase()) } } };
     if (search) where.name = { $containsi: search };
 
     const users = await strapi.db.query('plugin::users-permissions.user').findMany({
       where,
       select: ['id', 'name', 'username', 'email', 'whatsapp'],
+      populate: { role: { select: ['name'] } },
       orderBy: { name: 'asc' },
     });
     ctx.body = {
-      data: users.map((u: any) => ({ id: u.id, name: u.name || u.username, email: u.email, whatsapp: u.whatsapp })),
+      data: users.map((u: any) => ({
+        id: u.id,
+        name: u.name || u.username,
+        email: u.email,
+        whatsapp: u.whatsapp,
+        role: u.role?.name,
+      })),
     };
+  },
+
+  // Always lands the new account as Student — promotion to Facilitator/Judge/
+  // Admin is a deliberate separate step (updateUserRole below), never implicit.
+  async createUser(ctx: any) {
+    const { name, email, username, password } = (ctx.request.body as any) || {};
+    if (!name || !email || !username || !password) {
+      return ctx.badRequest('name, email, username and password are required.');
+    }
+
+    const existingEmail = await strapi.db.query('plugin::users-permissions.user').findOne({
+      where: { email: String(email).toLowerCase() },
+    });
+    if (existingEmail) return ctx.badRequest('Email already in use.');
+
+    const existingUsername = await strapi.db.query('plugin::users-permissions.user').findOne({ where: { username } });
+    if (existingUsername) return ctx.badRequest('Username already in use.');
+
+    const studentRole = await strapi.db.query('plugin::users-permissions.role').findOne({ where: { type: 'student' } });
+    if (!studentRole) return ctx.internalServerError('Student role is not configured.');
+
+    // Goes through the plugin's own user service (not a raw db.query create)
+    // so the password gets hashed exactly the same way /auth/register does.
+    const userService = strapi.plugin('users-permissions').service('user');
+    const user = await userService.add({
+      name,
+      username,
+      email,
+      password,
+      provider: 'local',
+      confirmed: true,
+      blocked: false,
+      role: studentRole.id,
+    });
+
+    ctx.body = { data: { id: user.id, name: user.name, email: user.email, username: user.username, role: 'Student' } };
+  },
+
+  async updateUserRole(ctx: any) {
+    const { id } = ctx.params;
+    const { role } = (ctx.request.body as any) || {};
+    if (!role || !ACADEMY_ROLES.includes(role)) {
+      return ctx.badRequest(`role is required and must be one of: ${ACADEMY_ROLES.join(', ')}`);
+    }
+
+    const user = await strapi.db.query('plugin::users-permissions.user').findOne({ where: { id } });
+    if (!user) return ctx.notFound('User not found.');
+
+    const targetRole = await strapi.db.query('plugin::users-permissions.role').findOne({
+      where: { type: role.toLowerCase() },
+    });
+    if (!targetRole) return ctx.notFound('Role not found.');
+
+    const updated = await strapi.db.query('plugin::users-permissions.user').update({
+      where: { id: user.id },
+      data: { role: targetRole.id },
+    });
+    ctx.body = { data: { id: updated.id, name: updated.name || updated.username, email: updated.email, role } };
+  },
+
+  async rosterRequests(ctx: any) {
+    const requests = await strapi.db.query('api::academy-roster-request.academy-roster-request').findMany({
+      orderBy: { createdAt: 'desc' },
+      populate: {
+        cohort: { populate: { course: { select: ['title'] } } },
+        facilitator: { select: ['id', 'name', 'username'] },
+      },
+    });
+    ctx.body = { data: requests.map(shapeRosterRequest) };
   },
 };

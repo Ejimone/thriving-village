@@ -61,6 +61,18 @@ export default {
       handler: 'academy-cohort.earlyAccessRequests',
       config: facilitatorScoped,
     },
+    {
+      method: 'POST',
+      path: '/cohorts/:id/roster-requests',
+      handler: 'academy-cohort.rosterRequestCreate',
+      config: facilitatorScoped,
+    },
+    {
+      method: 'GET',
+      path: '/cohorts/:id/roster-requests',
+      handler: 'academy-cohort.rosterRequestsFind',
+      config: facilitatorScoped,
+    },
     { method: 'GET', path: '/cohorts/:id/sessions', handler: 'academy-cohort.sessionsFind', config: { policies: [] } },
     {
       method: 'POST',

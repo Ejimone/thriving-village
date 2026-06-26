@@ -1,7 +1,7 @@
 import utils from '@strapi/utils';
 
 const { ValidationError } = utils.errors;
-const ALLOWED_ROLES = ['talent', 'employer'];
+const ALLOWED_ROLES = ['talent', 'employer', 'student'];
 
 // The built-in /api/auth/local/register always assigns the plugin's configured
 // default role (Authenticated) and ignores any client-supplied role field —

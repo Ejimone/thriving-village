@@ -2,6 +2,7 @@ import { factories } from '@strapi/strapi';
 import { paceCompletion, chunk, normalize, type ProgressionState } from '../../../utils/academy-progression';
 import { logActivity } from '../../../utils/activity';
 import { idOrDocumentIdWhere, scopedFind } from '../../../utils/scoped-find';
+import { shapeRosterRequest } from '../../../utils/roster-request';
 
 const FACILITATOR_SELECT = { select: ['id', 'name', 'username'] };
 
@@ -428,6 +429,47 @@ export default factories.createCoreController('api::academy-cohort.academy-cohor
         currentDay: e.currentDay,
       })),
     };
+  },
+
+  async rosterRequestCreate(ctx) {
+    const { id } = ctx.params;
+    const { count, note } = (ctx.request.body as any) || {};
+
+    const cohort = await strapi.db.query('api::academy-cohort.academy-cohort').findOne({ where: { id } });
+    if (!cohort) return ctx.notFound('Cohort not found.');
+
+    const created = await strapi.db.query('api::academy-roster-request.academy-roster-request').create({
+      data: {
+        cohort: id,
+        facilitator: ctx.state.user.id,
+        count: count ?? null,
+        note: note ?? null,
+        status: 'Pending',
+      },
+      populate: {
+        cohort: { populate: { course: { select: ['title'] } } },
+        facilitator: { select: ['id', 'name', 'username'] },
+      },
+    });
+    await logActivity(strapi, {
+      who: 'A facilitator',
+      what: `requested more students for "${cohort.name}"`,
+      kind: 'gate-action',
+    });
+    ctx.body = { data: shapeRosterRequest(created) };
+  },
+
+  async rosterRequestsFind(ctx) {
+    const { id } = ctx.params;
+    const requests = await strapi.db.query('api::academy-roster-request.academy-roster-request').findMany({
+      where: { cohort: id },
+      orderBy: { createdAt: 'desc' },
+      populate: {
+        cohort: { populate: { course: { select: ['title'] } } },
+        facilitator: { select: ['id', 'name', 'username'] },
+      },
+    });
+    ctx.body = { data: requests.map(shapeRosterRequest) };
   },
 
   async sessionsFind(ctx) {

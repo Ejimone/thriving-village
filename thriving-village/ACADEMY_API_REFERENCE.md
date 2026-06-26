@@ -42,12 +42,18 @@ GET /api/me
 **Roles & who can create them**
 | Role | Who assigns it | Notes |
 |---|---|---|
-| `student` | Admin/facilitator (no self-serve signup endpoint exists yet — see §7) | enrolled in cohorts |
-| `facilitator` | Admin | scoped to cohorts where `cohort.facilitator == self` |
-| `judge` | Admin | sees only anonymized work |
-| `admin` | (seeded / existing) | same `admin` role as the main site — one platform-admin login has full access to both domains |
+| `student` | **Self-registers** via `POST /api/auth/register`, or admin (§6, always lands as Student) | enrolled in cohorts |
+| `facilitator` | Admin only — via `PUT /admin/users/:id/role` (§6), never self-registerable | scoped to cohorts where `cohort.facilitator == self` |
+| `judge` | Admin only — same role-change endpoint, never self-registerable | sees only anonymized work |
+| `admin` | Admin only — same role-change endpoint, never self-registerable | same `admin` role as the main site — one platform-admin login has full access to both domains |
 
-The public `/api/auth/local/register` endpoint only accepts `role: "talent" | "employer"` (main-site roles) — it will **reject** `student`/`facilitator`/`judge`. Academy accounts must be created by an admin via a script or the Strapi admin panel for now.
+**Sign up**
+```
+POST /api/auth/register
+{ "username": "...", "email": "...", "password": "...", "role": "student" }
+→ 200 { "jwt": "<token>", "user": { "id": 12, "username": "...", "email": "...", "role": { "name": "Student", ... }, ... } }
+```
+This is a **custom** route (not the stock plugin's `/api/auth/local/register`, which still exists but always assigns the plugin's unrelated default role regardless of any `role` field sent to it — don't use it). `role` accepts `"talent" | "employer" | "student"` only — `facilitator`/`judge`/`admin` are rejected with `400 "role must be one of: talent, employer, student"`. There is no self-serve path to those three; the only way an account becomes one is an admin explicitly changing it after the fact (§6).
 
 **User profile fields** (added on top of Strapi's default user): `name` (string), `whatsapp` (string) — both nullable, settable by an admin. These are what the roster/teammate-contact/certificate features display instead of `username`/email-derived names.
 
@@ -128,7 +134,7 @@ export const config = { matcher: ["/academy/:path*"] };
 |---|---|---|
 | Roles from `/api/me` | `"Talent" \| "Employer" \| "Admin"` | `"Student" \| "Facilitator" \| "Judge" \| "Admin"` |
 | Post-login redirect | `/admin` or `/dashboard` | `` `/academy/${role.toLowerCase()}` `` → `/academy/student`, `/academy/facilitator`, `/academy/judge`, `/academy/admin` |
-| `/api/auth/register` | works (`role: "talent"\|"employer"`) | **rejects** `student`/`facilitator`/`judge` — there is no Academy self-serve sign-up; copy `signInAction` only, skip `signUpAction` (see §10) |
+| `/api/auth/register` | works (`role: "talent"\|"employer"`) | works for `role: "student"` too — copy `signUpAction` as well, just constrain its role input to `"student"` and redirect to `/academy/student`. Still **rejects** `facilitator`/`judge`/`admin` — no self-serve path for those (see §10) |
 | Middleware matcher | `/dashboard/:path*`, `/admin/:path*` | `/academy/:path*` |
 | Cookie names | `tv_jwt` / `tv_role` / `tv_name` | reuse the exact same names (different subdomain, no collision risk) or rename to e.g. `ac_jwt`/`ac_role`/`ac_name` — either is fine, the code is identical |
 
@@ -280,6 +286,22 @@ Never includes which judge gave it — not even to facilitator/admin views.
 { studentNameSnapshot, courseTitleSnapshot, cohortNameSnapshot, issuedAt }
 ```
 No PDF yet (confirmed decision, deferred — see §7). These are snapshots taken at issuance time, not live joins, so they don't change if the student's name changes later.
+
+### Roster request
+```ts
+{
+  id, status: "Pending" | "Fulfilled" | "Dismissed",
+  count: number | null,        // how many students they're asking for
+  note: string | null,
+  createdAt,
+  cohort: { id, name, courseTitle },
+  facilitator: { id, name }
+}
+```
+`facilitator`/`cohort` are always resolved server-side (from the JWT and route param,
+respectively) at creation — never from the request body. See
+[COHORT_MANAGEMENT.md §10](COHORT_MANAGEMENT.md) for the full create/list/admin-review
+flow.
 
 ---
 
@@ -446,6 +468,16 @@ GET    /api/cohorts/:id/teams         → { "data": [ { id, week, title, members
 
 **Manual team editing** (build one team by hand, or edit a match's output without re-running it — `POST /cohorts/:id/teams`, `PUT/DELETE /teams/:teamId`, `POST/DELETE /teams/:teamId/members[/:userId]`) is documented in full in [COHORT_MANAGEMENT.md §9](COHORT_MANAGEMENT.md).
 
+### Roster requests (ask admin for more students)
+```
+POST /api/cohorts/:id/roster-requests   { "count"?: 5, "note"?: "..." }
+GET  /api/cohorts/:id/roster-requests   → { "data": [ <Roster request, §3> ] }    // this cohort's own requests, newest first
+```
+`facilitator` on the created request is always the calling user (from the JWT), never
+client-supplied. Both routes use the same cohort-ownership policy as everything else
+under `/cohorts/:id/...` — admin bypasses. Full lifecycle (including the admin-side
+review) in [COHORT_MANAGEMENT.md §10](COHORT_MANAGEMENT.md).
+
 ### Material authoring (facilitator: read-only; see §6 for admin write)
 ```
 GET /api/courses/:courseId/days/:day/material   — same shape as §4, facilitator just needs to run a cohort for that course
@@ -520,14 +552,58 @@ GET /api/admin/activity    → { "data": [ { who, what, when } ] }          // l
 ```
 GET /api/admin/users?role=Facilitator
 GET /api/admin/users?role=Student&search=ada
-→ { "data": [ { "id": 30, "name": "Chidi Okafor", "email": "...", "whatsapp": "..." } ] }
+GET /api/admin/users                          // role omitted — searches all 4 Academy roles at once
+→ { "data": [ { "id": 30, "name": "Chidi Okafor", "email": "...", "whatsapp": "...", "role": "Facilitator" } ] }
 ```
-`role` is required — one of `Student | Facilitator | Judge | Admin`, else `400`. `search` is
-optional, case-insensitive substring match on `name` only (not email/username). No
-pagination — these lists are small. Use this instead of a raw "type a user ID" input
+`role` is **optional** — one of `Student | Facilitator | Judge | Admin` if given, else `400`;
+omit it to search across all four at once (this never includes Talent/Employer main-site
+accounts — it's an Academy-only tool). `search` is optional, case-insensitive substring
+match on `name` only (not email/username). Every item now includes `role` (the role name).
+No pagination — these lists are small. Use this instead of a raw "type a user ID" input
 anywhere the admin UI needs to pick a person — assigning a facilitator to a cohort
 (`PUT /academy-cohorts/:documentId { "data": { "facilitator": <id> } }`), enrolling a
-student (`POST /academy-enrollments`), or picking team members (§5/[COHORT_MANAGEMENT.md](COHORT_MANAGEMENT.md)).
+student (`POST /academy-enrollments`), changing a role (below), or picking team members
+(§5/[COHORT_MANAGEMENT.md](COHORT_MANAGEMENT.md)).
+
+### Create an account directly (always Student)
+```
+POST /api/admin/users
+{ "name": "...", "email": "...", "username": "...", "password": "..." }
+→ { "data": { "id": 34, "name": "...", "email": "...", "username": "...", "role": "Student" } }
+```
+All four fields required, else `400`. Rejects with `400 "Email already in use."` /
+`400 "Username already in use."` on a duplicate. Password is hashed the same way
+`/auth/register` does (goes through the same plugin user service, not a raw insert) —
+verified the resulting account can actually sign in via `POST /auth/local`. Never returns
+the password/hash. There's no `role` field here — every account created this way starts
+as Student; use the role-change endpoint below to promote one.
+
+### Change a user's role
+```
+PUT /api/admin/users/:id/role
+{ "role": "Facilitator" }
+→ { "data": { "id": 34, "name": "...", "email": "...", "role": "Facilitator" } }
+```
+`:id` is the numeric user id. `role` is one of `Student | Facilitator | Judge | Admin`,
+else `400`. `404` if the user doesn't exist. This is the **only** way an account becomes
+Facilitator/Judge/Admin — both self-registration and admin-created accounts always start
+as Student (see above and §1).
+
+### Roster requests — admin side
+```
+GET /api/admin/roster-requests
+→ { "data": [ { "id": 1, "status": "Pending", "count": 5, "note": "...", "createdAt": "...", "cohort": { "id": 1, "name": "Cohort 7", "courseTitle": "Frontend Development" }, "facilitator": { "id": 10, "name": "Chidi Okafor" } } ] }
+
+PUT /api/roster-requests/:id
+{ "status": "Fulfilled" }
+→ { "data": { "id": 1, "status": "Fulfilled", ... } }
+```
+`GET` returns every roster request across every cohort, newest first. `PUT`'s `:id` is the
+numeric request id; `status` is `"Fulfilled" | "Dismissed"` only (not `"Pending"` — that's
+only ever set at creation). This just closes out the request — actually moving students
+into the cohort is a separate step via the existing enroll/transfer endpoints (§6/
+[COHORT_MANAGEMENT.md §4](COHORT_MANAGEMENT.md)). Full request lifecycle (including the
+facilitator-side create/list) is in [COHORT_MANAGEMENT.md §10](COHORT_MANAGEMENT.md).
 
 ---
 
@@ -593,7 +669,7 @@ Until `MUX_WEBHOOK_SECRET` is configured (see `backend/.env.local`), the webhook
 
 ## 10. Known gaps / not yet built (confirmed deferred decisions)
 
-- **No self-serve account creation for Academy roles** — `/api/auth/register` only accepts `talent`/`employer` (main-site roles); there's no public sign-up for `student`/`facilitator`/`judge`. Only `signInAction` is reusable from the main site's auth pattern (§1) — `signUpAction` is not, until/unless a new registration endpoint is added.
+- **No self-serve account creation for Facilitator/Judge/Admin** — `/api/auth/register` accepts `talent`/`employer`/`student` only; promotion to the other three roles is admin-only via `PUT /admin/users/:id/role` (§6). `signUpAction` (the main site's pattern, §1) **is** now reusable as-is for Student sign-up — just change the redirect and the allowed `role` value passed in the form; only `facilitator`/`judge`/`admin` still need an admin step after the fact.
 - **No self-serve student enrollment** — separately from account creation above, even an existing student account can't join a cohort themselves; an admin/facilitator must create the `academy-enrollment` row. If the new frontend needs this, it's a new endpoint to request, not something already there.
 - **No certificate PDF** — `GET /certificates/verify/:code` returns the verifiable record (name/course/cohort/date) only; rendering a certificate document is a frontend concern for now.
 - **No real datetime on live sessions** — `day`/`time` are free-text labels, not a parseable date. Fine for display, not sortable/remindable as-is.

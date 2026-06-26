@@ -829,6 +829,52 @@ export interface ApiAcademyMaterialAcademyMaterial
   };
 }
 
+export interface ApiAcademyRosterRequestAcademyRosterRequest
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'academy_roster_requests';
+  info: {
+    description: "A facilitator's request to admin for more students to be added to their cohort";
+    displayName: 'Academy Roster Request';
+    pluralName: 'academy-roster-requests';
+    singularName: 'academy-roster-request';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    cohort: Schema.Attribute.Relation<
+      'manyToOne',
+      'api::academy-cohort.academy-cohort'
+    > &
+      Schema.Attribute.Required;
+    count: Schema.Attribute.Integer;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    facilitator: Schema.Attribute.Relation<
+      'manyToOne',
+      'plugin::users-permissions.user'
+    > &
+      Schema.Attribute.Required;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::academy-roster-request.academy-roster-request'
+    > &
+      Schema.Attribute.Private;
+    note: Schema.Attribute.Text;
+    publishedAt: Schema.Attribute.DateTime;
+    status: Schema.Attribute.Enumeration<
+      ['Pending', 'Fulfilled', 'Dismissed']
+    > &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<'Pending'>;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
 export interface ApiAcademySubmissionAcademySubmission
   extends Struct.CollectionTypeSchema {
   collectionName: 'academy_submissions';
@@ -1948,6 +1994,7 @@ declare module '@strapi/strapi' {
       'api::academy-judgment.academy-judgment': ApiAcademyJudgmentAcademyJudgment;
       'api::academy-live-session.academy-live-session': ApiAcademyLiveSessionAcademyLiveSession;
       'api::academy-material.academy-material': ApiAcademyMaterialAcademyMaterial;
+      'api::academy-roster-request.academy-roster-request': ApiAcademyRosterRequestAcademyRosterRequest;
       'api::academy-submission.academy-submission': ApiAcademySubmissionAcademySubmission;
       'api::academy-team.academy-team': ApiAcademyTeamAcademyTeam;
       'api::activity-log.activity-log': ApiActivityLogActivityLog;

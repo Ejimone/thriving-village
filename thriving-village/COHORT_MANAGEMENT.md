@@ -315,7 +315,48 @@ the team → cohort → facilitator before checking — owning facilitator or ad
 
 ---
 
-## 10. Quick reference: every cohort-management endpoint
+## 10. Roster requests (facilitator asks admin for more students)
+
+A lightweight request/review queue — a facilitator flags "I need more students" (optionally
+with a count and a note), and admin tracks/closes it out. **This endpoint never moves any
+students itself** — actually enrolling or transferring students into the cohort still goes
+through the existing endpoints (`POST /academy-enrollments`, §4's transfer routes). It's
+purely a communication/tracking layer on top.
+
+### Facilitator side
+```
+POST /api/cohorts/:id/roster-requests
+  { "count": 5, "note": "Need more frontend students for week 4." }
+→ { "data": { "id": 1, "status": "Pending", "count": 5, "note": "...", "createdAt": "...", "cohort": { "id": 1, "name": "Cohort 7", "courseTitle": "Frontend Development" }, "facilitator": { "id": 10, "name": "Chidi Okafor" } } }
+
+GET /api/cohorts/:id/roster-requests
+→ { "data": [ <same shape>, ... ] }   // this cohort's own requests, newest first
+```
+`:id` is the cohort's numeric id, scoped by the same `global::is-cohort-facilitator` policy
+as every other `/cohorts/:id/...` route — owning facilitator or admin, 403 otherwise.
+`count`/`note` are both optional (send whichever applies — neither is required, the backend
+won't reject an empty body). `facilitator` is always the calling user, resolved from the JWT
+— there's no way to create a request on someone else's behalf. New requests always start
+`"Pending"`.
+
+### Admin side
+```
+GET /api/admin/roster-requests
+→ { "data": [ <same shape, every cohort> ] }   // newest first
+
+PUT /api/roster-requests/:id
+  { "status": "Fulfilled" }   // or "Dismissed"
+→ { "data": { "id": 1, "status": "Fulfilled", ... } }
+```
+`GET` is unscoped (every cohort, every facilitator) — admin-only. `PUT`'s `:id` is the
+request's own numeric id (not a cohort id); `status` accepts `"Fulfilled"` or `"Dismissed"`
+only — there's no endpoint to set it back to `"Pending"`, since that's only ever the
+creation default. A typical admin flow: review `GET /admin/roster-requests`, go enroll/transfer
+the students the normal way, then `PUT` the request to `"Fulfilled"` to close the loop.
+
+---
+
+## 11. Quick reference: every cohort-management endpoint
 
 | Method | Path | Who | Notes |
 |---|---|---|---|
@@ -342,5 +383,11 @@ the team → cohort → facilitator before checking — owning facilitator or ad
 | POST | `/cohorts/:id/teams` | facilitator/admin | §9, create one team manually |
 | PUT/DELETE | `/teams/:teamId` | facilitator/admin (owning cohort only) | §9, rename / delete one team |
 | POST/DELETE | `/teams/:teamId/members[/:userId]` | facilitator/admin (owning cohort only) | §9, add / remove one member |
-| GET | `/admin/users?role=...&search=...` | admin | name-searchable user picker — see [ACADEMY_API_REFERENCE.md §6](ACADEMY_API_REFERENCE.md) |
+| POST | `/cohorts/:id/roster-requests` | facilitator/admin | §10 |
+| GET | `/cohorts/:id/roster-requests` | facilitator/admin | §10, this cohort's own requests |
+| GET | `/admin/roster-requests` | admin | §10, every cohort |
+| PUT | `/roster-requests/:id` | admin | §10, close out a request |
+| GET | `/admin/users?role=...&search=...` | admin | name-searchable user picker (role optional) — see [ACADEMY_API_REFERENCE.md §6](ACADEMY_API_REFERENCE.md) |
+| POST | `/admin/users` | admin | create an account directly (always Student) — see [ACADEMY_API_REFERENCE.md §6](ACADEMY_API_REFERENCE.md) |
+| PUT | `/admin/users/:id/role` | admin | the only way to promote to Facilitator/Judge/Admin — see [ACADEMY_API_REFERENCE.md §6](ACADEMY_API_REFERENCE.md) |
 | DELETE | `/academy-enrollments/:documentId` | admin | hard-delete, guarded — see [ACADEMY_API_REFERENCE.md §6](ACADEMY_API_REFERENCE.md) (data-hygiene only, not the normal remove flow) |

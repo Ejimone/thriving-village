@@ -1,0 +1,40 @@
+{
+  "kind": "collectionType",
+  "collectionName": "academy_roster_requests",
+  "info": {
+    "singularName": "academy-roster-request",
+    "pluralName": "academy-roster-requests",
+    "displayName": "Academy Roster Request",
+    "description": "A facilitator's request to admin for more students to be added to their cohort"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "facilitator": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::users-permissions.user",
+      "required": true
+    },
+    "cohort": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::academy-cohort.academy-cohort",
+      "required": true
+    },
+    "count": {
+      "type": "integer"
+    },
+    "note": {
+      "type": "text"
+    },
+    "status": {
+      "type": "enumeration",
+      "enum": ["Pending", "Fulfilled", "Dismissed"],
+      "default": "Pending",
+      "required": true
+    }
+  }
+}
