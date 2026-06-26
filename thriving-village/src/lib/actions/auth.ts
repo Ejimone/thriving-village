@@ -7,10 +7,19 @@ import type { Role } from "@/lib/constants";
 
 export type AuthResult = { error?: string };
 
+// Only ever redirect to a same-origin relative path — a `redirect` param is attacker-
+// controllable (it round-trips through the URL), so anything else (protocol-relative
+// `//evil.com`, absolute `https://evil.com`) is an open-redirect vector and gets ignored.
+function safeRedirect(target: unknown): string | null {
+  if (typeof target !== "string" || !target.startsWith("/") || target.startsWith("//")) return null;
+  return target;
+}
+
 export async function signInAction(formData: FormData): Promise<AuthResult> {
   const identifier = String(formData.get("email") || "").trim();
   const password = String(formData.get("password") || "");
   if (!identifier || !password) return { error: "Email and password are required." };
+  const redirectTo = safeRedirect(formData.get("redirect"));
 
   let role: Role;
   try {
@@ -27,7 +36,7 @@ export async function signInAction(formData: FormData): Promise<AuthResult> {
   } catch (err) {
     return { error: err instanceof StrapiError ? err.message : "Something went wrong. Please try again." };
   }
-  redirect(role === "Admin" ? "/admin" : "/dashboard");
+  redirect(redirectTo || (role === "Admin" ? "/admin" : "/dashboard"));
 }
 
 export async function signUpAction(formData: FormData): Promise<AuthResult> {
@@ -35,6 +44,7 @@ export async function signUpAction(formData: FormData): Promise<AuthResult> {
   const email = String(formData.get("email") || "").trim();
   const password = String(formData.get("password") || "");
   const role = String(formData.get("role") || "talent");
+  const redirectTo = safeRedirect(formData.get("redirect"));
 
   if (!fullName || !email || !password) {
     return { error: "Name, email and password are required." };
@@ -52,7 +62,7 @@ export async function signUpAction(formData: FormData): Promise<AuthResult> {
   } catch (err) {
     return { error: err instanceof StrapiError ? err.message : "Something went wrong. Please try again." };
   }
-  redirect("/dashboard");
+  redirect(redirectTo || "/dashboard");
 }
 
 export async function signOutAction() {

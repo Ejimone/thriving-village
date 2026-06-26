@@ -6,7 +6,7 @@
    All money is in Naira.
    ============================================================ */
 
-import { strapiFetch, type StrapiListResponse, type StrapiSingleResponse } from "./strapi";
+import { strapiFetch, STRAPI_URL, type StrapiListResponse, type StrapiSingleResponse } from "./strapi";
 
 // Re-exported so pages/cards can pull data + formatting from one module.
 export { naira } from "./utils";
@@ -163,10 +163,13 @@ export async function getJobs(
   }
 }
 
-export async function getJob(id: string): Promise<Job | null> {
+/** `token` is admin-only: without it the request is anonymous, so a draft job 404s even for an admin caller. */
+export async function getJob(id: string, token?: string): Promise<Job | null> {
   try {
     const res = await strapiFetch<StrapiSingleResponse<Record<string, unknown>>>(`/api/jobs/${id}`, {
-      next: { revalidate: 60, tags: ["jobs", `job:${id}`] },
+      token,
+      next: token ? undefined : { revalidate: 60, tags: ["jobs", `job:${id}`] },
+      noStore: !!token,
     });
     return res.data ? mapJob(res.data) : null;
   } catch {
@@ -681,7 +684,13 @@ export async function getTestimonials(): Promise<Testimonial[]> {
    never worth caching across users.
    ============================================================ */
 
-export type ApplicationStatus = "Applied" | "In review" | "Interview" | "Closed";
+export type ApplicationStatus =
+  | "Applied"
+  | "In review"
+  | "Interview"
+  | "Shortlisted"
+  | "Closed"
+  | "Archived";
 export type EntryStatus = "Submitted" | "Shortlisted" | "Won" | "Not selected";
 
 export async function getMyApplications(
@@ -693,6 +702,50 @@ export async function getMyApplications(
       { token, noStore: true },
     );
     return res.data ?? [];
+  } catch {
+    return [];
+  }
+}
+
+/* ---- Admin: job applicants ---- */
+
+export type JobApplicant = {
+  documentId: string;
+  name: string;
+  whatsapp: string;
+  message: string | null;
+  portfolioUrl: string | null;
+  videoUrl: string;
+  status: ApplicationStatus;
+  appliedAgo: string;
+  cv: { url: string; name: string; size: number } | null;
+};
+
+function absoluteMediaUrl(url: string): string {
+  return url.startsWith("http") ? url : `${STRAPI_URL}${url}`;
+}
+
+/** Admin-only: everyone who applied to one job, attachments included. */
+export async function getJobApplicants(jobSlug: string, token: string): Promise<JobApplicant[]> {
+  try {
+    const res = await strapiFetch<{ data: Record<string, unknown>[] }>(`/api/jobs/${jobSlug}/applicants`, {
+      token,
+      noStore: true,
+    });
+    return (res.data ?? []).map((r) => {
+      const cv = r.cv as Record<string, unknown> | null;
+      return {
+        documentId: String(r.documentId),
+        name: String(r.name),
+        whatsapp: String(r.whatsapp),
+        message: r.message ? String(r.message) : null,
+        portfolioUrl: r.portfolioUrl ? String(r.portfolioUrl) : null,
+        videoUrl: String(r.videoUrl ?? ""),
+        status: r.status as ApplicationStatus,
+        appliedAgo: String(r.appliedAgo ?? ""),
+        cv: cv ? { url: absoluteMediaUrl(String(cv.url)), name: String(cv.name ?? "CV"), size: Number(cv.size ?? 0) } : null,
+      };
+    });
   } catch {
     return [];
   }

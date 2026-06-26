@@ -13,6 +13,7 @@ export function StatusBadge({ status }: { status: string }) {
     Submitted: "neutral",
     Applied: "outline",
     Closed: "outline",
+    Archived: "outline",
     "Not selected": "outline",
   };
   return (

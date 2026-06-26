@@ -111,8 +111,11 @@ export default factories.createCoreController('api::job.job', ({ strapi }) => ({
     const body = (ctx.request.body as any)?.data
       ? JSON.parse((ctx.request.body as any).data)
       : ctx.request.body;
-    const { name, whatsapp, message, portfolioUrl } = body || {};
+    const { name, whatsapp, message, portfolioUrl, videoUrl } = body || {};
     if (!name || !whatsapp) return ctx.badRequest('name and whatsapp are required.');
+    if (!videoUrl) {
+      return ctx.badRequest('A short intro video URL (e.g. a Loom link) is required.');
+    }
 
     const files = (ctx.request as any).files;
     const cv = files?.cv;
@@ -125,6 +128,7 @@ export default factories.createCoreController('api::job.job', ({ strapi }) => ({
         whatsapp,
         message,
         portfolioUrl: portfolioUrl || undefined,
+        videoUrl,
         status: 'Applied',
         ...(cv ? { cv } : {}),
       },
@@ -134,6 +138,39 @@ export default factories.createCoreController('api::job.job', ({ strapi }) => ({
     await logActivity(strapi, { who: name, what: `applied to ${job.title}`, kind: 'application' });
 
     ctx.body = { data: application };
+  },
+
+  // Admin-only: everyone who applied to this job, with their attachments — backs the
+  // "click a job to see its applicants" admin view. Lives on `job` (not `job-application`)
+  // since it's scoped by slug, mirroring `apply` above.
+  async applicants(ctx) {
+    const user = ctx.state.user;
+    if (!user || user.role?.name !== 'Admin') return ctx.forbidden('Admin access required.');
+
+    const { slug } = ctx.params;
+    const job = await strapi.db.query('api::job.job').findOne({ where: { slug } });
+    if (!job) return ctx.notFound('Job not found.');
+
+    const rows = await strapi.db.query('api::job-application.job-application').findMany({
+      where: { job: job.id },
+      populate: { cv: true },
+      orderBy: { createdAt: 'desc' },
+      limit: 200,
+    });
+
+    ctx.body = {
+      data: rows.map((r: any) => ({
+        documentId: r.documentId,
+        name: r.name,
+        whatsapp: r.whatsapp,
+        message: r.message,
+        portfolioUrl: r.portfolioUrl,
+        videoUrl: r.videoUrl,
+        status: r.status,
+        appliedAgo: timeAgo(r.createdAt),
+        cv: r.cv ? { url: r.cv.url, name: r.cv.name, size: r.cv.size } : null,
+      })),
+    };
   },
 
   // Public SSE stream of newly published jobs — pushed via strapi.eventHub so the job

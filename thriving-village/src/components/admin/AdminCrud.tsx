@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useId, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -31,6 +32,8 @@ export function AdminCrud({
   onDelete,
   noun,
   previewRow,
+  getRowHref,
+  hideActions,
 }: {
   title: string;
   subtitle: string;
@@ -45,7 +48,12 @@ export function AdminCrud({
   noun: string;
   /** Optional: builds a preview row from the submitted form data, shown instantly while the real save is in flight. */
   previewRow?: (documentId: string | null, formData: FormData) => AdminRow;
+  /** When set, clicking anywhere on a row navigates here instead of opening the edit modal inline. */
+  getRowHref?: (row: AdminRow) => string;
+  /** Hide the inline Edit/Delete column — use when those actions live on the row's detail page instead. */
+  hideActions?: boolean;
 }) {
+  const router = useRouter();
   const [editing, setEditing] = useState<null | { kind: "new" } | { kind: "edit"; id: string }>(null);
   const formId = useId();
   const [deleting, startDelete] = useTransition();
@@ -143,18 +151,22 @@ export function AdminCrud({
                   {c}
                 </th>
               ))}
-              <th className="px-5 py-3.5 text-right text-xs font-bold uppercase tracking-[0.05em] text-gray-500">
-                Actions
-              </th>
+              {!hideActions && (
+                <th className="px-5 py-3.5 text-right text-xs font-bold uppercase tracking-[0.05em] text-gray-500">
+                  Actions
+                </th>
+              )}
             </tr>
           </thead>
           <tbody>
             {displayRows.map((row) => {
               const isPendingNew = row.id === PENDING_NEW_ID;
+              const href = !isPendingNew && getRowHref ? getRowHref(row) : undefined;
               return (
                 <tr
                   key={row.id}
-                  className={`border-b border-gray-150 last:border-0 hover:bg-gray-50 ${isPendingNew ? "opacity-60" : ""}`}
+                  onClick={href ? () => router.push(href) : undefined}
+                  className={`border-b border-gray-150 last:border-0 hover:bg-gray-50 ${isPendingNew ? "opacity-60" : ""} ${href ? "cursor-pointer" : ""}`}
                 >
                   {row.cells.map((cell, i) => (
                     <td
@@ -164,29 +176,37 @@ export function AdminCrud({
                       {cell}
                     </td>
                   ))}
-                  <td className="px-5 py-4">
-                    {!isPendingNew && (
-                      <div className="flex items-center justify-end gap-2">
-                        <IconButton
-                          variant="ghost"
-                          size="sm"
-                          aria-label={`Edit ${noun}`}
-                          onClick={() => setEditing({ kind: "edit", id: row.id })}
-                        >
-                          <Pencil size={16} />
-                        </IconButton>
-                        <IconButton
-                          variant="ghost"
-                          size="sm"
-                          aria-label={`Delete ${noun}`}
-                          disabled={deleting}
-                          onClick={() => handleDelete(row)}
-                        >
-                          <Trash2 size={16} />
-                        </IconButton>
-                      </div>
-                    )}
-                  </td>
+                  {!hideActions && (
+                    <td className="px-5 py-4">
+                      {!isPendingNew && (
+                        <div className="flex items-center justify-end gap-2">
+                          <IconButton
+                            variant="ghost"
+                            size="sm"
+                            aria-label={`Edit ${noun}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditing({ kind: "edit", id: row.id });
+                            }}
+                          >
+                            <Pencil size={16} />
+                          </IconButton>
+                          <IconButton
+                            variant="ghost"
+                            size="sm"
+                            aria-label={`Delete ${noun}`}
+                            disabled={deleting}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDelete(row);
+                            }}
+                          >
+                            <Trash2 size={16} />
+                          </IconButton>
+                        </div>
+                      )}
+                    </td>
+                  )}
                 </tr>
               );
             })}

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useActionState } from "react";
+import { useSearchParams } from "next/navigation";
 import { MessageCircle } from "lucide-react";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
@@ -9,6 +10,8 @@ import { WHATSAPP_URL } from "@/lib/data";
 import { signInAction, type AuthResult } from "@/lib/actions/auth";
 
 export default function SignInPage() {
+  const searchParams = useSearchParams();
+  const redirectTo = searchParams.get("redirect");
   const [state, formAction, pending] = useActionState<AuthResult, FormData>(
     (_prev, formData) => signInAction(formData),
     {},
@@ -24,6 +27,7 @@ export default function SignInPage() {
       </p>
 
       <form action={formAction} className="mt-7 flex flex-col gap-4">
+        {redirectTo && <input type="hidden" name="redirect" value={redirectTo} />}
         <Input name="email" label="Email" type="email" placeholder="you@example.com" required />
         <Input name="password" label="Password" type="password" placeholder="••••••••" required />
         {state.error && (
@@ -60,7 +64,10 @@ export default function SignInPage() {
 
       <p className="mt-7 text-center text-[15px] text-gray-600 [letter-spacing:var(--tv-track-tight)]">
         New here?{" "}
-        <Link href="/auth/signup" className="font-semibold text-black hover:underline">
+        <Link
+          href={redirectTo ? `/auth/signup?redirect=${encodeURIComponent(redirectTo)}` : "/auth/signup"}
+          className="font-semibold text-black hover:underline"
+        >
           Create an account
         </Link>
       </p>

@@ -61,6 +61,7 @@ export function JobApplyPanel({
       title={`Apply — ${job.title}`}
       subtitle={`${job.org} · ${job.location}`}
       withPrompt={false}
+      withVideoUrl
       withFile
       fileHint="Attach your CV — PDF or image"
       withPortfolioUrl

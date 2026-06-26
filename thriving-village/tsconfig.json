@@ -30,5 +30,11 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules", "backend"]
+  "exclude": [
+    "node_modules",
+    "backend",
+    "academy-components-for frontend",
+    "academy",
+    "cohort.ts"
+  ]
 }

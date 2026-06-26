@@ -21,13 +21,24 @@ const NAV = [
   { href: "/about", label: "About" },
 ];
 
+// Admins manage the platform, not browse it — swap the consumer nav for the
+// same areas they'd find in the /admin sidebar.
+const ADMIN_NAV = [
+  { href: "/admin", label: "Overview" },
+  { href: "/admin/jobs", label: "Jobs" },
+  { href: "/admin/contests", label: "Contests" },
+  { href: "/admin/courses", label: "Courses" },
+];
+
 export function Navbar({ session }: { session: { role: Role; name: string } | null }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  const homeHref = session?.role === "Admin" ? "/admin" : "/dashboard";
+  const isAdmin = session?.role === "Admin";
+  const homeHref = isAdmin ? "/admin" : "/dashboard";
+  const navItems = isAdmin ? ADMIN_NAV : NAV;
 
   const isActive = (href: string) =>
-    href === "/" ? pathname === "/" : pathname.startsWith(href);
+    href === "/admin" ? pathname === "/admin" : pathname.startsWith(href);
 
   return (
     <>
@@ -39,7 +50,7 @@ export function Navbar({ session }: { session: { role: Role; name: string } | nu
 
         {/* Desktop nav */}
         <nav className="hidden md:flex items-center gap-1">
-          {NAV.map((n) => (
+          {navItems.map((n) => (
             <Link
               key={n.href}
               href={n.href}
@@ -122,7 +133,7 @@ export function Navbar({ session }: { session: { role: Role; name: string } | nu
               </IconButton>
             </div>
             <nav className="flex flex-col p-4 gap-1">
-              {NAV.map((n) => (
+              {navItems.map((n) => (
                 <Link
                   key={n.href}
                   href={n.href}

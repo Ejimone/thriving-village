@@ -1240,7 +1240,7 @@ export interface ApiJobApplicationJobApplication
     portfolioUrl: Schema.Attribute.String;
     publishedAt: Schema.Attribute.DateTime;
     status: Schema.Attribute.Enumeration<
-      ['Applied', 'In review', 'Interview', 'Closed']
+      ['Applied', 'In review', 'Interview', 'Shortlisted', 'Closed', 'Archived']
     > &
       Schema.Attribute.Required &
       Schema.Attribute.DefaultTo<'Applied'>;
@@ -1251,6 +1251,7 @@ export interface ApiJobApplicationJobApplication
       'manyToOne',
       'plugin::users-permissions.user'
     >;
+    videoUrl: Schema.Attribute.String & Schema.Attribute.Required;
     whatsapp: Schema.Attribute.String & Schema.Attribute.Required;
   };
 }

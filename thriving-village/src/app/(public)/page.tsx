@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { MessageCircle, ArrowRight, Quote } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -14,6 +15,7 @@ import {
   WHATSAPP_URL,
   photo,
 } from "@/lib/data";
+import { getSession } from "@/lib/session";
 
 const PATHS = [
   {
@@ -40,6 +42,9 @@ const PATHS = [
 ];
 
 export default async function HomePage() {
+  const session = await getSession();
+  if (session?.role === "Admin") redirect("/admin");
+
   const [{ items: featuredJobs }, { items: liveContests }, featuredBrands, testimonials] =
     await Promise.all([
       getJobs({ pageSize: 3 }),

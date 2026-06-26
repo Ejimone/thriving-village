@@ -9,6 +9,14 @@ export default {
       },
     },
     {
+      method: 'GET',
+      path: '/jobs/:slug/applicants',
+      handler: 'job.applicants',
+      config: {
+        policies: [],
+      },
+    },
+    {
       // Deliberately not nested under /jobs/:something — that shape collides with the
       // core router's GET /jobs/:id (findOne) route.
       method: 'GET',

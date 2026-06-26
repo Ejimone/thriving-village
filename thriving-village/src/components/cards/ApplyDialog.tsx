@@ -1,16 +1,18 @@
 "use client";
 
-import { useId, useState, useTransition } from "react";
+import { useEffect, useId, useState, useTransition } from "react";
+import { useRouter, usePathname } from "next/navigation";
 import { Button, type ButtonProps } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { FileUpload } from "@/components/ui/FileUpload";
 import { toast } from "@/components/ui/Toaster";
+import { isSignedInClientSide } from "@/lib/client-session";
 
 export type SubmitResult = { error?: string; success?: boolean };
 
-type Draft = { name: string; whatsapp: string; note: string; portfolioUrl: string };
+type Draft = { name: string; whatsapp: string; note: string; videoUrl: string; portfolioUrl: string };
 
 type Props = {
   /** Button label, e.g. "Apply for this role". */
@@ -32,6 +34,8 @@ type Props = {
   fileHint?: string;
   /** Whether to show a portfolio URL field — lets applicants link work instead of (or alongside) a file. */
   withPortfolioUrl?: boolean;
+  /** Whether to require a short intro video URL (e.g. a Loom link) before the attachment field. */
+  withVideoUrl?: boolean;
   /** Toast message on submit. */
   successMessage: string;
   buttonVariant?: ButtonProps["variant"];
@@ -56,6 +60,7 @@ export function ApplyDialog({
   withFile = false,
   fileHint,
   withPortfolioUrl = false,
+  withVideoUrl = false,
   successMessage,
   buttonVariant = "inverse",
   size = "lg",
@@ -64,10 +69,25 @@ export function ApplyDialog({
   onOptimisticSuccess,
   onOptimisticError,
 }: Props) {
+  const router = useRouter();
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<Draft | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const formId = useId();
   const [pending, startTransition] = useTransition();
+
+  useEffect(() => {
+    setIsAuthenticated(isSignedInClientSide());
+  }, []);
+
+  function handleClick() {
+    if (!isAuthenticated) {
+      router.push(`/auth/signin?redirect=${encodeURIComponent(pathname)}`);
+      return;
+    }
+    setOpen(true);
+  }
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -76,6 +96,7 @@ export function ApplyDialog({
       name: String(formData.get("name") ?? ""),
       whatsapp: String(formData.get("whatsapp") ?? ""),
       note: String(formData.get(promptName) ?? ""),
+      videoUrl: String(formData.get("videoUrl") ?? ""),
       portfolioUrl: String(formData.get("portfolioUrl") ?? ""),
     });
 
@@ -100,7 +121,7 @@ export function ApplyDialog({
         variant={buttonVariant}
         size={size}
         fullWidth={fullWidth}
-        onClick={() => setOpen(true)}
+        onClick={handleClick}
       >
         {label}
       </Button>
@@ -137,12 +158,23 @@ export function ApplyDialog({
               required={promptRequired}
             />
           )}
+          {withVideoUrl && (
+            <Input
+              name="videoUrl"
+              type="url"
+              label="Intro video URL (Loom)"
+              placeholder="https://www.loom.com/share/..."
+              defaultValue={draft?.videoUrl}
+              hint="Record a short Loom video (under 5 minutes) introducing yourself, then paste the link here."
+              required
+            />
+          )}
           {withFile && <FileUpload name="file" label="Attachment" hint={fileHint} />}
           {withPortfolioUrl && (
             <Input
               name="portfolioUrl"
               type="url"
-              label="Portfolio URL (optional)"
+              label="Portfolio URL"
               placeholder="https://your-portfolio.com"
               defaultValue={draft?.portfolioUrl}
               hint="Share a link instead of, or alongside, a file."

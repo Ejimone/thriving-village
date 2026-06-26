@@ -1,4 +1,33 @@
+import { cached } from './utils/cache';
+
 type Strapi = any;
+
+// Strapi's users-permissions plugin re-fetches the authenticated user (with role) and
+// the role's permission list from the DB on EVERY authenticated request — uncached,
+// regardless of our own jobs/contests caching, since it's plugin-internal auth wiring.
+// Against a remote DB this doubles every authenticated request's round-trip time, so we
+// wrap both lookups with a short TTL cache here. Guarded with typeof checks since this
+// pokes at plugin internals not covered by Strapi's stable public API — if a Strapi
+// upgrade changes these method names, we skip wrapping instead of crashing the boot.
+function cacheAuthLookups(strapi: Strapi) {
+  try {
+    const userService = strapi.plugin('users-permissions').service('user');
+    if (typeof userService?.fetchAuthenticatedUser === 'function') {
+      const original = userService.fetchAuthenticatedUser.bind(userService);
+      userService.fetchAuthenticatedUser = (id: number) =>
+        cached('auth:user', String(id), 20, () => original(id));
+    }
+
+    const permissionService = strapi.plugin('users-permissions').service('permission');
+    if (typeof permissionService?.findRolePermissions === 'function') {
+      const original = permissionService.findRolePermissions.bind(permissionService);
+      permissionService.findRolePermissions = (roleId: number) =>
+        cached('auth:role-permissions', String(roleId), 60, () => original(roleId));
+    }
+  } catch (err) {
+    console.warn('[auth-cache] Could not wrap users-permissions services, leaving uncached:', err);
+  }
+}
 
 const ROLES: Array<{ type: string; name: string; description: string }> = [
   { type: 'talent', name: 'Talent', description: 'Signed-up community member applying/entering/enrolling.' },
@@ -158,6 +187,7 @@ const ADMIN_ACTIONS = [
   'api::job.job.create',
   'api::job.job.update',
   'api::job.job.delete',
+  'api::job.job.applicants',
   'api::contest.contest.create',
   'api::contest.contest.update',
   'api::contest.contest.delete',
@@ -304,7 +334,9 @@ async function syncPermissions(strapi: Strapi, roleType: string, allowedActions:
 }
 
 export default {
-  register() {},
+  register({ strapi }: { strapi: Strapi }) {
+    cacheAuthLookups(strapi);
+  },
 
   async bootstrap({ strapi }: { strapi: Strapi }) {
     for (const role of ROLES) {

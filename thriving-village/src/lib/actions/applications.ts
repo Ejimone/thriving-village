@@ -30,12 +30,15 @@ export async function applyToJobAction(jobSlug: string, formData: FormData): Pro
   const whatsapp = String(formData.get("whatsapp") || "");
   const message = String(formData.get("message") || "");
   const portfolioUrl = String(formData.get("portfolioUrl") || "");
+  const videoUrl = String(formData.get("videoUrl") || "");
   const file = formData.get("file") as File | null;
+
+  if (!videoUrl) return { error: "A short intro video URL (e.g. a Loom link) is required." };
 
   try {
     await postApplyLike(
       `/api/jobs/${jobSlug}/apply`,
-      { name, whatsapp, message, portfolioUrl },
+      { name, whatsapp, message, portfolioUrl, videoUrl },
       "cv",
       file,
       session.jwt,

@@ -88,6 +88,19 @@ export async function deleteJobAction(documentId: string): Promise<AdminResult> 
   }
 }
 
+export async function updateApplicationStatusAction(
+  documentId: string,
+  status: string,
+): Promise<AdminResult> {
+  try {
+    const session = await requireAdmin();
+    await writeEntity("job-applications", documentId, { status }, session.jwt);
+    return { success: true };
+  } catch (err) {
+    return { error: err instanceof StrapiError || err instanceof Error ? err.message : "Something went wrong." };
+  }
+}
+
 /* ---------------- Contests ---------------- */
 
 export async function saveContestAction(documentId: string | null, formData: FormData): Promise<AdminResult> {

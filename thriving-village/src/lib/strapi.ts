@@ -10,7 +10,7 @@
 
 import { BulkheadRejectedError, CircuitBreaker, CircuitOpenError } from "./circuit-breaker";
 
-const STRAPI_URL = process.env.STRAPI_URL || "http://localhost:1337";
+export const STRAPI_URL = process.env.STRAPI_URL || "http://localhost:1337";
 const STRAPI_TIMEOUT_MS = 5000;
 
 export class StrapiError extends Error {

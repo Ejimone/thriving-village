@@ -41,9 +41,13 @@
     "portfolioUrl": {
       "type": "string"
     },
+    "videoUrl": {
+      "type": "string",
+      "required": true
+    },
     "status": {
       "type": "enumeration",
-      "enum": ["Applied", "In review", "Interview", "Closed"],
+      "enum": ["Applied", "In review", "Interview", "Shortlisted", "Closed", "Archived"],
       "default": "Applied",
       "required": true
     }

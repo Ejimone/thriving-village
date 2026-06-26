@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useActionState, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Briefcase, Building2 } from "lucide-react";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
@@ -27,6 +28,8 @@ const ROLES: { value: Role; title: string; body: string; icon: React.ReactNode }
   ];
 
 export default function SignUpPage() {
+  const searchParams = useSearchParams();
+  const redirectTo = searchParams.get("redirect");
   const [role, setRole] = useState<Role>("talent");
   const [state, formAction, pending] = useActionState<AuthResult, FormData>(
     (_prev, formData) => signUpAction(formData),
@@ -85,6 +88,7 @@ export default function SignUpPage() {
 
       <form action={formAction} className="mt-5 flex flex-col gap-4">
         <input type="hidden" name="role" value={role} />
+        {redirectTo && <input type="hidden" name="redirect" value={redirectTo} />}
         <Input name="name" label="Full name" placeholder="Your name" required />
         <Input name="email" label="Email" type="email" placeholder="you@example.com" required />
         <Input name="password" label="Password" type="password" placeholder="••••••••" required />
@@ -101,7 +105,10 @@ export default function SignUpPage() {
 
       <p className="mt-6 text-center text-[15px] text-gray-600 [letter-spacing:var(--tv-track-tight)]">
         Already have an account?{" "}
-        <Link href="/auth/signin" className="font-semibold text-black hover:underline">
+        <Link
+          href={redirectTo ? `/auth/signin?redirect=${encodeURIComponent(redirectTo)}` : "/auth/signin"}
+          className="font-semibold text-black hover:underline"
+        >
           Sign in
         </Link>
       </p>
