@@ -29,7 +29,7 @@ export default function AuthLayout({
           </p>
         </div>
         <p className="text-[13px] text-gray-500 [letter-spacing:var(--tv-track-tight)]">
-          © 2026 Thriving Village · Lagos, Nigeria
+          {/* © 2026 Thriving Village · Lagos, Nigeria */}
         </p>
       </div>
 

@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: thriving-village-backend
+    runtime: node
+    plan: starter
+    region: singapore
+    buildCommand: npm install && npm run build
+    startCommand: npm run start
+    envVars:
+      - key: NODE_VERSION
+        value: 20.18.0
+      - key: NODE_ENV
+        value: production
+      # Secrets (APP_KEYS, JWT_SECRET, etc.), DATABASE_URL, UPSTASH_*, MUX_*, and
+      # CLOUDINARY_* must be added manually in the Render dashboard — copy the exact
+      # same values from the working Strapi Cloud / local backend/.env so existing
+      # JWTs and signed URLs stay valid after cutover.
