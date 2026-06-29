@@ -150,7 +150,7 @@ class AcademyAdminUserRoleView(APIView):
 
         user.role = role.lower()
         user.save(update_fields=["role"])
-        return Response({"data": {"id": user.id, "name": user.name or user.username, "email": user.email, "role": role}})
+        return Response({"data": {"id": user.id, "name": user.name or user.username, "email": user.email, "role": Role(user.role).label}})
 
 
 class AcademyAdminRosterRequestsView(APIView):

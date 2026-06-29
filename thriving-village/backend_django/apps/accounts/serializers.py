@@ -52,9 +52,20 @@ class LoginSerializer(serializers.Serializer):
 
 class MeSerializer(serializers.Serializer):
     """Mirrors backend/src/api/me/controllers/me.ts's `whoami` shape exactly:
-    {id, username, email, role} with role as a flat string."""
+    {id, username, email, role} with role as a flat string.
+
+    Strapi's `up_roles` table has both `type` (lowercase, machine — "admin")
+    and `name` (capitalized, display — "Admin"); `me.ts` returned `.name`,
+    which is what the entire frontend's Role type ("Talent"|"Employer"|
+    "Admin") and every `session.role === "Admin"` check was built against.
+    Django's Role enum stores the lowercase value (matching `type`) with a
+    capitalized label (matching `name`) — `get_role_display()` is Django's
+    built-in accessor for that label, so this has to read through it rather
+    than the raw `role` attribute, or every role-gated redirect/permission
+    check on the frontend silently never matches.
+    """
 
     id = serializers.IntegerField()
     username = serializers.CharField()
     email = serializers.EmailField()
-    role = serializers.CharField()
+    role = serializers.CharField(source="get_role_display")
