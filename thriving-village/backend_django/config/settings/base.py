@@ -11,6 +11,7 @@ from pathlib import Path
 
 import dj_database_url
 from dotenv import load_dotenv
+from django.templatetags.static import static
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
@@ -21,6 +22,10 @@ DEBUG = os.environ.get("DJANGO_DEBUG", "false").lower() == "true"
 ALLOWED_HOSTS = [h.strip() for h in os.environ.get("DJANGO_ALLOWED_HOSTS", "").split(",") if h.strip()]
 
 INSTALLED_APPS = [
+    # Must load before django.contrib.admin — Unfold overrides admin
+    # templates/static assets in place rather than replacing admin.site.
+    "unfold",
+    "unfold.contrib.filters",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -124,9 +129,50 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+STATICFILES_DIRS = [BASE_DIR / "static"]
 STORAGES = {
     "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
     "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
+}
+
+# Restyles django.contrib.admin in place (same admin.py registrations, same
+# /admin/ URL) to match the frontend's design tokens (src/app/globals.css):
+# neutrals-first, no bright accent color, 12px radius, Instrument Sans +
+# Libre Baskerville. Colors below are RGB triplets read directly off that
+# file's :root block, not approximations.
+UNFOLD = {
+    "SITE_TITLE": "Thriving Village",
+    "SITE_HEADER": "Thriving Village",
+    "BORDER_RADIUS": "12px",  # --tv-radius-sm
+    "COLORS": {
+        "font": {
+            "subtle-light": "122 122 122",  # --tv-gray-500
+            "subtle-dark": "199 199 199",  # --tv-gray-300
+            "default-light": "10 10 10",  # --tv-black
+            "default-dark": "255 255 255",  # --tv-white
+            "important-light": "10 10 10",
+            "important-dark": "255 255 255",
+        },
+        # Neutral black/gray ramp as the "primary" — the frontend's own rule
+        # is that accents (blue/orange/green/yellow/magenta) are rare, one
+        # per page, never a system-wide brand color, so the admin's primary
+        # is driven by the same gray ramp as everything else.
+        "primary": {
+            "50": "248 248 246", "100": "242 242 239", "200": "226 226 223",
+            "300": "199 199 199", "400": "160 160 160", "500": "122 122 122",
+            "600": "92 92 92", "700": "64 64 64", "800": "43 43 43",
+            "900": "28 28 28", "950": "17 17 17",
+        },
+        "base": {
+            "50": "248 248 246", "100": "242 242 239", "200": "226 226 223",
+            "300": "199 199 199", "400": "160 160 160", "500": "122 122 122",
+            "600": "92 92 92", "700": "64 64 64", "800": "43 43 43",
+            "900": "28 28 28", "950": "17 17 17",
+        },
+    },
+    "STYLES": [
+        lambda request: static("css/admin-theme.css"),
+    ],
 }
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"

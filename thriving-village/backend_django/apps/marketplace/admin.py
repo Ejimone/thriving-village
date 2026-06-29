@@ -1,4 +1,5 @@
 from django.contrib import admin
+from unfold.admin import ModelAdmin, TabularInline
 
 from .models import (
     Brand,
@@ -18,29 +19,29 @@ from .models import (
 )
 
 
-class PrizeInline(admin.TabularInline):
+class PrizeInline(TabularInline):
     model = Prize
     extra = 0
 
 
-class LessonInline(admin.TabularInline):
+class LessonInline(TabularInline):
     model = Lesson
     extra = 0
 
 
-class ModuleInline(admin.TabularInline):
+class ModuleInline(TabularInline):
     model = Module
     extra = 0
 
 
 @admin.register(Module)
-class ModuleAdmin(admin.ModelAdmin):
+class ModuleAdmin(ModelAdmin):
     list_display = ["title", "course", "order"]
     inlines = [LessonInline]
 
 
 @admin.register(Job)
-class JobAdmin(admin.ModelAdmin):
+class JobAdmin(ModelAdmin):
     list_display = ["title", "org", "field", "status", "created_at"]
     list_filter = ["field", "status", "level"]
     search_fields = ["title", "org"]
@@ -48,7 +49,7 @@ class JobAdmin(admin.ModelAdmin):
 
 
 @admin.register(Contest)
-class ContestAdmin(admin.ModelAdmin):
+class ContestAdmin(ModelAdmin):
     list_display = ["title", "field", "status", "deadline", "entries"]
     list_filter = ["field", "status"]
     inlines = [PrizeInline]
@@ -56,7 +57,7 @@ class ContestAdmin(admin.ModelAdmin):
 
 
 @admin.register(Course)
-class CourseAdmin(admin.ModelAdmin):
+class CourseAdmin(ModelAdmin):
     list_display = ["title", "field", "kind", "delivery", "price"]
     list_filter = ["field", "kind", "delivery"]
     inlines = [ModuleInline]
@@ -64,29 +65,49 @@ class CourseAdmin(admin.ModelAdmin):
 
 
 @admin.register(Product)
-class ProductAdmin(admin.ModelAdmin):
+class ProductAdmin(ModelAdmin):
     list_display = ["name", "category", "type", "price"]
     list_filter = ["category", "type", "condition"]
     prepopulated_fields = {"slug": ("name",)}
 
 
-admin.site.register(Lesson)
-admin.site.register(Brand)
-admin.site.register(Testimonial)
+@admin.register(Lesson)
+class LessonAdmin(ModelAdmin):
+    pass
+
+
+@admin.register(Brand)
+class BrandAdmin(ModelAdmin):
+    pass
+
+
+@admin.register(Testimonial)
+class TestimonialAdmin(ModelAdmin):
+    pass
 
 
 @admin.register(JobApplication)
-class JobApplicationAdmin(admin.ModelAdmin):
+class JobApplicationAdmin(ModelAdmin):
     list_display = ["name", "job", "status", "created_at"]
     list_filter = ["status"]
 
 
 @admin.register(ContestEntry)
-class ContestEntryAdmin(admin.ModelAdmin):
+class ContestEntryAdmin(ModelAdmin):
     list_display = ["name", "contest", "status", "rank", "created_at"]
     list_filter = ["status"]
 
 
-admin.site.register(Enrollment)
-admin.site.register(SavedJob)
-admin.site.register(LessonProgress)
+@admin.register(Enrollment)
+class EnrollmentAdmin(ModelAdmin):
+    pass
+
+
+@admin.register(SavedJob)
+class SavedJobAdmin(ModelAdmin):
+    pass
+
+
+@admin.register(LessonProgress)
+class LessonProgressAdmin(ModelAdmin):
+    pass
