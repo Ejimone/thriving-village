@@ -1,0 +1,21 @@
+/* Carries the frontend's exact font/tracking/shadow tokens
+   (src/app/globals.css) into Unfold's admin theme — colors and border
+   radius are handled by the UNFOLD settings dict in
+   config/settings/base.py; this file covers what that dict has no key
+   for. */
+
+@import url("https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Libre+Baskerville:wght@400;700&display=swap");
+
+body.font-sans {
+  font-family: "Instrument Sans", ui-sans-serif, system-ui, sans-serif !important;
+  letter-spacing: -0.03em; /* --tv-track-tight */
+}
+
+h1, h2 {
+  font-family: "Libre Baskerville", Georgia, "Times New Roman", serif !important;
+  letter-spacing: 0;
+}
+
+.shadow-sm { box-shadow: 0 1px 2px rgba(10, 10, 10, 0.06) !important; }
+.shadow-md, .shadow { box-shadow: 0 6px 20px rgba(10, 10, 10, 0.08) !important; }
+.shadow-lg, .shadow-xl { box-shadow: 0 18px 48px rgba(10, 10, 10, 0.12) !important; }

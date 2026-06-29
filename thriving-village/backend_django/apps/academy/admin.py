@@ -1,4 +1,5 @@
 from django.contrib import admin
+from unfold.admin import ModelAdmin
 
 from .models import (
     AcademyCategory,
@@ -16,39 +17,61 @@ from .models import (
 
 
 @admin.register(AcademyCategory)
-class AcademyCategoryAdmin(admin.ModelAdmin):
+class AcademyCategoryAdmin(ModelAdmin):
     list_display = ["name", "slug"]
     prepopulated_fields = {"slug": ("name",)}
 
 
 @admin.register(AcademyCourse)
-class AcademyCourseAdmin(admin.ModelAdmin):
+class AcademyCourseAdmin(ModelAdmin):
     list_display = ["title", "category", "months", "certificate"]
     list_filter = ["category", "certificate"]
     prepopulated_fields = {"slug": ("title",)}
 
 
 @admin.register(AcademyCohort)
-class AcademyCohortAdmin(admin.ModelAdmin):
+class AcademyCohortAdmin(ModelAdmin):
     list_display = ["name", "course", "facilitator", "status", "released_week", "start_date"]
     list_filter = ["status"]
 
 
 @admin.register(AcademyMaterial)
-class AcademyMaterialAdmin(admin.ModelAdmin):
+class AcademyMaterialAdmin(ModelAdmin):
     list_display = ["course", "day", "task"]
     list_filter = ["course"]
 
 
 @admin.register(AcademyEnrollment)
-class AcademyEnrollmentAdmin(admin.ModelAdmin):
+class AcademyEnrollmentAdmin(ModelAdmin):
     list_display = ["user", "cohort", "status", "current_day", "removed"]
     list_filter = ["status", "removed"]
 
 
-admin.site.register(AcademyCertificate)
-admin.site.register(AcademySubmission)
-admin.site.register(AcademyJudgment)
-admin.site.register(AcademyTeam)
-admin.site.register(AcademyLiveSession)
-admin.site.register(AcademyRosterRequest)
+@admin.register(AcademyCertificate)
+class AcademyCertificateAdmin(ModelAdmin):
+    pass
+
+
+@admin.register(AcademySubmission)
+class AcademySubmissionAdmin(ModelAdmin):
+    pass
+
+
+@admin.register(AcademyJudgment)
+class AcademyJudgmentAdmin(ModelAdmin):
+    pass
+
+
+@admin.register(AcademyTeam)
+class AcademyTeamAdmin(ModelAdmin):
+    pass
+
+
+@admin.register(AcademyLiveSession)
+class AcademyLiveSessionAdmin(ModelAdmin):
+    pass
+
+
+@admin.register(AcademyRosterRequest)
+class AcademyRosterRequestAdmin(ModelAdmin):
+    pass

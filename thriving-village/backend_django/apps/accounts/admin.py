@@ -1,11 +1,12 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
+from unfold.admin import ModelAdmin
 
 from .models import User
 
 
 @admin.register(User)
-class UserAdmin(DjangoUserAdmin):
+class UserAdmin(ModelAdmin, DjangoUserAdmin):
     ordering = ["email"]
     list_display = ["email", "username", "role", "is_staff", "blocked"]
     # Django's built-in UserAdmin defaults to searching first_name/last_name,
