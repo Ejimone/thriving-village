@@ -115,38 +115,10 @@ export async function getJobs(
   } = {},
 ): Promise<Paginated<Job>> {
   const { field, locationType, level, query, page = 1, pageSize = 12, full, token } = params;
-  const filters: Record<string, unknown> = {};
-  if (field) filters.field = { $eq: field };
-  if (locationType) filters.locationType = { $eq: locationType };
-  if (level) filters.level = { $eq: level };
-  if (query) {
-    filters.$or = [{ title: { $containsi: query } }, { org: { $containsi: query } }];
-  }
 
   try {
     const res = await strapiFetch<StrapiListResponse<Record<string, unknown>>>("/api/jobs", {
-      query: {
-        filters,
-        sort: "createdAt:desc",
-        pagination: { page, pageSize },
-        ...(full
-          ? {}
-          : {
-              fields: [
-                "title",
-                "slug",
-                "org",
-                "orgKind",
-                "field",
-                "location",
-                "locationType",
-                "type",
-                "level",
-                "pay",
-                "createdAt",
-              ],
-            }),
-      },
+      query: { field, locationType, level, search: query, page, page_size: pageSize },
       next: full ? undefined : { revalidate: 60, tags: ["jobs"] },
       noStore: full,
       token,
@@ -256,10 +228,10 @@ export async function getContests(
 
   try {
     // Status is filtered client-side (after normalizeContestStatus) rather than via a
-    // Strapi `filters.status` match — an exact-match filter would silently drop any
+    // `?status=` exact-match filter — an exact-match filter would silently drop any
     // contest whose stored status isn't literally "live"/"past" (see normalizeContestStatus).
     const res = await strapiFetch<StrapiListResponse<Record<string, unknown>>>("/api/contests", {
-      query: { sort: "deadline:asc", pagination: { pageSize: 100 } },
+      query: { ordering: "deadline", page_size: 100 },
       next: { revalidate: 60, tags: ["contests"] },
     });
     const all = res.data.map(mapContest);
@@ -396,19 +368,19 @@ export const inPriceBand = (price: number, band: PriceBand): boolean => {
   }
 };
 
-/** Translates a price band into Strapi `$gte`/`$lt` filter bounds (or none for "all"). */
-function priceBandFilter(band?: PriceBand): Record<string, unknown> | undefined {
+/** Translates a price band into `priceMin`/`priceMax` query bounds (or none for "all"). */
+function priceBandQuery(band?: PriceBand): { priceMin?: number; priceMax?: number } {
   switch (band) {
     case "under-50k":
-      return { $lt: 50000 };
+      return { priceMax: 50000 };
     case "50k-250k":
-      return { $gte: 50000, $lt: 250000 };
+      return { priceMin: 50000, priceMax: 250000 };
     case "250k-1m":
-      return { $gte: 250000, $lt: 1000000 };
+      return { priceMin: 250000, priceMax: 1000000 };
     case "1m-plus":
-      return { $gte: 1000000 };
+      return { priceMin: 1000000 };
     default:
-      return undefined;
+      return {};
   }
 }
 
@@ -424,17 +396,10 @@ export async function getCourses(
   } = {},
 ): Promise<Paginated<Course>> {
   const { field, delivery, kind, level, price, page = 1, pageSize = 12 } = params;
-  const filters: Record<string, unknown> = {};
-  if (field) filters.field = { $eq: field };
-  if (delivery) filters.delivery = { $eq: delivery };
-  if (kind) filters.kind = { $eq: kind };
-  if (level) filters.level = { $eq: level };
-  const priceFilter = priceBandFilter(price);
-  if (priceFilter) filters.price = priceFilter;
 
   try {
     const res = await strapiFetch<StrapiListResponse<Record<string, unknown>>>("/api/courses", {
-      query: { filters, sort: "createdAt:desc", pagination: { page, pageSize } },
+      query: { field, delivery, kind, level, ...priceBandQuery(price), page, page_size: pageSize },
       next: { revalidate: 60, tags: ["courses"] },
     });
     return {
@@ -569,20 +534,21 @@ export async function getProducts(
   } = {},
 ): Promise<Paginated<Product>> {
   const { category, type, condition, price, query, sort, page = 1, pageSize = 24 } = params;
-  const filters: Record<string, unknown> = {};
-  if (category) filters.category = { $eq: category };
-  if (type) filters.type = { $eq: type };
-  if (condition) filters.condition = { $eq: condition };
-  const priceFilter = priceBandFilter(price);
-  if (priceFilter) filters.price = priceFilter;
-  if (query) filters.name = { $containsi: query };
 
-  const sortParam =
-    sort === "price-asc" ? "price:asc" : sort === "price-desc" ? "price:desc" : "createdAt:desc";
+  const ordering = sort === "price-asc" ? "price" : sort === "price-desc" ? "-price" : undefined;
 
   try {
     const res = await strapiFetch<StrapiListResponse<Record<string, unknown>>>("/api/products", {
-      query: { filters, sort: sortParam, pagination: { page, pageSize } },
+      query: {
+        category,
+        type,
+        condition,
+        ...priceBandQuery(price),
+        search: query,
+        ordering,
+        page,
+        page_size: pageSize,
+      },
       next: { revalidate: 60, tags: ["products"] },
     });
     return {
@@ -640,13 +606,10 @@ function mapBrand(raw: Record<string, unknown>): Brand {
 
 export async function getBrands(params: { kind?: BrandKind; featured?: boolean } = {}): Promise<Brand[]> {
   const { kind, featured } = params;
-  const filters: Record<string, unknown> = {};
-  if (kind) filters.kind = { $eq: kind };
-  if (featured !== undefined) filters.featured = { $eq: featured };
 
   try {
     const res = await strapiFetch<StrapiListResponse<Record<string, unknown>>>("/api/brands", {
-      query: { filters, sort: "name:asc" },
+      query: { kind, featured, ordering: "name" },
       next: { revalidate: 60, tags: ["brands"] },
     });
     return res.data.map(mapBrand);
@@ -781,7 +744,6 @@ export async function getMyCourses(token: string): Promise<{ courseId: string; p
 export async function getSavedJobSlugs(token: string): Promise<Set<string>> {
   try {
     const res = await strapiFetch<StrapiListResponse<Record<string, unknown>>>("/api/saved-jobs", {
-      query: { populate: { job: { fields: ["slug"] } }, pagination: { pageSize: 100 } },
       token,
       noStore: true,
     });
@@ -798,7 +760,7 @@ export async function getSavedJobSlugs(token: string): Promise<Set<string>> {
 export async function getCourseLessonProgress(token: string, courseDbId: number): Promise<Set<string>> {
   try {
     const res = await strapiFetch<StrapiListResponse<Record<string, unknown>>>("/api/lesson-progresses", {
-      query: { courseId: courseDbId, pagination: { pageSize: 100 } },
+      query: { courseId: courseDbId },
       token,
       noStore: true,
     });
