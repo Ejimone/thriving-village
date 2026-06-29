@@ -8,9 +8,19 @@ const STRAPI_URL = process.env.STRAPI_URL || "http://localhost:1337";
  * session check — since it only ever carries fields already visible via GET /jobs.
  */
 export async function GET() {
-  const upstream = await fetch(`${STRAPI_URL}/api/job-stream`, { cache: "no-store" });
+  let upstream: Response;
+  try {
+    upstream = await fetch(`${STRAPI_URL}/api/job-stream`, { cache: "no-store" });
+  } catch (err) {
+    console.error("[jobs/stream] fetch threw:", err);
+    return new Response("Job stream unavailable", { status: 502 });
+  }
 
   if (!upstream.ok || !upstream.body) {
+    const text = await upstream.text().catch(() => "<unreadable>");
+    console.error(
+      `[jobs/stream] upstream not ok — status=${upstream.status} statusText=${upstream.statusText} body=${text.slice(0, 500)}`,
+    );
     return new Response("Job stream unavailable", { status: 502 });
   }
 

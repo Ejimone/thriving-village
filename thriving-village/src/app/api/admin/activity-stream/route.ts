@@ -16,12 +16,22 @@ export async function GET() {
     return new Response("Unauthorized", { status: 401 });
   }
 
-  const upstream = await fetch(`${STRAPI_URL}/api/admin-dashboard/stream`, {
-    headers: { Authorization: `Bearer ${session.jwt}` },
-    cache: "no-store",
-  });
+  let upstream: Response;
+  try {
+    upstream = await fetch(`${STRAPI_URL}/api/admin-dashboard/stream`, {
+      headers: { Authorization: `Bearer ${session.jwt}` },
+      cache: "no-store",
+    });
+  } catch (err) {
+    console.error("[activity-stream] fetch threw:", err);
+    return new Response("Activity stream unavailable", { status: 502 });
+  }
 
   if (!upstream.ok || !upstream.body) {
+    const text = await upstream.text().catch(() => "<unreadable>");
+    console.error(
+      `[activity-stream] upstream not ok — status=${upstream.status} statusText=${upstream.statusText} body=${text.slice(0, 500)}`,
+    );
     return new Response("Activity stream unavailable", { status: 502 });
   }
 
