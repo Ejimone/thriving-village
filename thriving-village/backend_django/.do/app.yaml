@@ -1,0 +1,80 @@
+name: thriving-village-backend
+region: nyc
+services:
+  - name: django-api
+    github:
+      repo: Ejimone/thriving-village
+      branch: main
+      deploy_on_push: true
+    source_dir: thriving-village/backend_django
+    environment_slug: python
+    instance_size_slug: basic-xxs
+    instance_count: 1
+    http_port: 8080
+    build_command: pip install -r requirements.txt && python manage.py collectstatic --noinput
+    run_command: gunicorn config.wsgi:application --bind 0.0.0.0:8080 --workers 3 --timeout 30
+    health_check:
+      http_path: /api/jobs
+    envs:
+      - key: DJANGO_SETTINGS_MODULE
+        value: config.settings.production
+      - key: DJANGO_DEBUG
+        value: "false"
+      - key: DJANGO_ALLOWED_HOSTS
+        value: ${APP_DOMAIN}
+      - key: DJANGO_SECRET_KEY
+        type: SECRET
+      - key: JWT_SECRET
+        type: SECRET
+      - key: DATABASE_URL
+        type: SECRET
+      - key: DATABASE_SSL
+        value: "true"
+      - key: CORS_ALLOWED_ORIGINS
+        value: REPLACE_WITH_YOUR_FRONTEND_ORIGIN
+      - key: UPSTASH_REDIS_URL
+        type: SECRET
+      - key: CLOUDINARY_CLOUD_NAME
+        type: SECRET
+      - key: CLOUDINARY_API_KEY
+        type: SECRET
+      - key: CLOUDINARY_API_SECRET
+        type: SECRET
+      - key: MUX_TOKEN_ID
+        type: SECRET
+      - key: MUX_TOKEN_TOKEN_SECRET
+        type: SECRET
+      - key: MUX_KEY_ID
+        type: SECRET
+      - key: MUX_SIGNING_SECRET_KEY
+        type: SECRET
+      - key: MUX_WEBHOOK_SECRET
+        type: SECRET
+      - key: ACADEMY_FRONTEND_ORIGIN
+        value: REPLACE_WITH_YOUR_FRONTEND_ORIGIN
+jobs:
+  - name: migrate
+    kind: PRE_DEPLOY
+    github:
+      repo: Ejimone/thriving-village
+      branch: main
+    source_dir: thriving-village/backend_django
+    environment_slug: python
+    instance_size_slug: basic-xxs
+    build_command: pip install -r requirements.txt
+    run_command: python manage.py migrate --noinput
+    envs:
+      - key: DJANGO_SETTINGS_MODULE
+        value: config.settings.production
+      - key: DJANGO_DEBUG
+        value: "false"
+      - key: DJANGO_ALLOWED_HOSTS
+        value: ${APP_DOMAIN}
+      - key: DJANGO_SECRET_KEY
+        type: SECRET
+      - key: JWT_SECRET
+        type: SECRET
+      - key: DATABASE_URL
+        type: SECRET
+      - key: DATABASE_SSL
+        value: "true"
