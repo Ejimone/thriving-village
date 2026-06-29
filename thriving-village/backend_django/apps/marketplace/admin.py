@@ -1,6 +1,8 @@
 from django.contrib import admin
 from unfold.admin import ModelAdmin, TabularInline
 
+from apps.core.admin import AutoSlugAdminMixin
+
 from .models import (
     Brand,
     Contest,
@@ -41,34 +43,38 @@ class ModuleAdmin(ModelAdmin):
 
 
 @admin.register(Job)
-class JobAdmin(ModelAdmin):
+class JobAdmin(AutoSlugAdminMixin, ModelAdmin):
     list_display = ["title", "org", "field", "status", "created_at"]
     list_filter = ["field", "status", "level"]
     search_fields = ["title", "org"]
     prepopulated_fields = {"slug": ("title",)}
+    slug_source_field = "title"
 
 
 @admin.register(Contest)
-class ContestAdmin(ModelAdmin):
+class ContestAdmin(AutoSlugAdminMixin, ModelAdmin):
     list_display = ["title", "field", "status", "deadline", "entries"]
     list_filter = ["field", "status"]
     inlines = [PrizeInline]
     prepopulated_fields = {"slug": ("title",)}
+    slug_source_field = "title"
 
 
 @admin.register(Course)
-class CourseAdmin(ModelAdmin):
+class CourseAdmin(AutoSlugAdminMixin, ModelAdmin):
     list_display = ["title", "field", "kind", "delivery", "price"]
     list_filter = ["field", "kind", "delivery"]
     inlines = [ModuleInline]
     prepopulated_fields = {"slug": ("title",)}
+    slug_source_field = "title"
 
 
 @admin.register(Product)
-class ProductAdmin(ModelAdmin):
+class ProductAdmin(AutoSlugAdminMixin, ModelAdmin):
     list_display = ["name", "category", "type", "price"]
     list_filter = ["category", "type", "condition"]
     prepopulated_fields = {"slug": ("name",)}
+    slug_source_field = "name"
 
 
 @admin.register(Lesson)

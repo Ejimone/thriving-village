@@ -1,6 +1,8 @@
 from django.contrib import admin
 from unfold.admin import ModelAdmin
 
+from apps.core.admin import AutoSlugAdminMixin
+
 from .models import (
     AcademyCategory,
     AcademyCertificate,
@@ -17,16 +19,18 @@ from .models import (
 
 
 @admin.register(AcademyCategory)
-class AcademyCategoryAdmin(ModelAdmin):
+class AcademyCategoryAdmin(AutoSlugAdminMixin, ModelAdmin):
     list_display = ["name", "slug"]
     prepopulated_fields = {"slug": ("name",)}
+    slug_source_field = "name"
 
 
 @admin.register(AcademyCourse)
-class AcademyCourseAdmin(ModelAdmin):
+class AcademyCourseAdmin(AutoSlugAdminMixin, ModelAdmin):
     list_display = ["title", "category", "months", "certificate"]
     list_filter = ["category", "certificate"]
     prepopulated_fields = {"slug": ("title",)}
+    slug_source_field = "title"
 
 
 @admin.register(AcademyCohort)
