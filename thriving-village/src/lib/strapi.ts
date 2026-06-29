@@ -10,7 +10,13 @@
 
 import { BulkheadRejectedError, CircuitBreaker, CircuitOpenError } from "./circuit-breaker";
 
-export const STRAPI_URL = process.env.STRAPI_URL || "http://localhost:1337";
+// A trailing slash here (e.g. from copy-pasting a URL straight out of a
+// browser address bar) combined with every call site's leading "/api/..."
+// path produces a double slash, which 404s — and since every data.ts
+// function catches fetch errors and falls back to an empty result, that
+// 404 has no visible error, it just looks like "there's no data". Stripping
+// it here means a trailing slash can never reproduce that silently again.
+export const STRAPI_URL = (process.env.STRAPI_URL || "http://localhost:1337").replace(/\/+$/, "");
 const STRAPI_TIMEOUT_MS = 5000;
 
 export class StrapiError extends Error {
