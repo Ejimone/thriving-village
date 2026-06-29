@@ -7,12 +7,10 @@ services:
       branch: main
       deploy_on_push: true
     source_dir: thriving-village/backend_django
-    environment_slug: python
+    dockerfile_path: Dockerfile
     instance_size_slug: basic-xxs
     instance_count: 1
     http_port: 8080
-    build_command: pip install -r requirements.txt && python manage.py collectstatic --noinput
-    run_command: gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --workers 3 --timeout 30
     health_check:
       http_path: /api/jobs
     envs:
@@ -59,9 +57,8 @@ jobs:
       repo: Ejimone/thriving-village
       branch: main
     source_dir: thriving-village/backend_django
-    environment_slug: python
+    dockerfile_path: Dockerfile
     instance_size_slug: basic-xxs
-    build_command: pip install -r requirements.txt
     run_command: python manage.py migrate --noinput
     envs:
       - key: DJANGO_SETTINGS_MODULE
