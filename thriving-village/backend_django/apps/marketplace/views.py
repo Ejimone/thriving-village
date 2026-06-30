@@ -189,7 +189,7 @@ class ContestViewSet(CachedListMixin, EnvelopeMixin, UnwrapDataMixin, PkForWrite
     def get_permissions(self):
         if self.action == "entries":
             return [IsAuthenticated()]
-        if self.action in ADMIN_WRITE_ACTIONS:
+        if self.action == "entries_find" or self.action in ADMIN_WRITE_ACTIONS:
             return [IsAdminRole()]
         return super().get_permissions()
 
@@ -237,6 +237,16 @@ class ContestViewSet(CachedListMixin, EnvelopeMixin, UnwrapDataMixin, PkForWrite
         invalidate_scope("contests")  # entries count changed — bypassed the queryset cache
         log_activity(who=data["name"], what=f"entered {contest.title}", kind="entry")
         return Response({"data": ContestEntrySerializer(entry).data}, status=status.HTTP_201_CREATED)
+
+    @entries.mapping.get
+    def entries_find(self, request, slug=None):
+        """GET .../contests/:slug/entries — admin-only, every entry
+        regardless of rank (unlike `leaderboard`, which only shows entries
+        that already have one). The full entrant pool an admin picks
+        winners from."""
+        contest = self.get_object()
+        rows = ContestEntry.objects.filter(contest=contest).order_by("-created_at")
+        return Response({"data": ContestEntrySerializer(rows, many=True).data})
 
     @action(detail=True, methods=["get"], permission_classes=[AllowAny])
     def leaderboard(self, request, slug=None):
@@ -465,17 +475,21 @@ class JobApplicationStatusView(APIView):
 
 
 class ContestEntryStatusView(APIView):
-    """PUT /api/contest-entries/:id — admin-only status/rank changes."""
+    """PUT /api/contest-entries/:id — admin-only status/rank changes. Also
+    the winner-selection action: set status="Won" (+ rank) on the winning
+    entries."""
 
     permission_classes = [IsAdminRole]
 
     def put(self, request, pk):
-        entry = ContestEntry.objects.filter(pk=pk).first()
+        entry = ContestEntry.objects.filter(pk=pk).select_related("contest").first()
         if not entry:
             raise NotFound("Entry not found.")
         serializer = ContestEntryStatusSerializer(entry, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
+        if serializer.validated_data.get("status") == "Won":
+            log_activity(who="An admin", what=f"selected a winner for {entry.contest.title}", kind="contest-result")
         return Response({"data": ContestEntrySerializer(entry).data})
 
 

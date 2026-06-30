@@ -4,6 +4,7 @@ from unfold.admin import ModelAdmin
 from apps.core.admin import AutoSlugAdminMixin
 
 from .models import (
+    AcademyApplication,
     AcademyCategory,
     AcademyCertificate,
     AcademyCohort,
@@ -35,7 +36,7 @@ class AcademyCourseAdmin(AutoSlugAdminMixin, ModelAdmin):
 
 @admin.register(AcademyCohort)
 class AcademyCohortAdmin(ModelAdmin):
-    list_display = ["name", "course", "facilitator", "status", "released_week", "start_date"]
+    list_display = ["name", "course", "facilitator", "status", "released_week", "start_date", "capacity"]
     list_filter = ["status"]
 
 
@@ -79,3 +80,9 @@ class AcademyLiveSessionAdmin(ModelAdmin):
 @admin.register(AcademyRosterRequest)
 class AcademyRosterRequestAdmin(ModelAdmin):
     pass
+
+
+@admin.register(AcademyApplication)
+class AcademyApplicationAdmin(ModelAdmin):
+    list_display = ["user", "course", "status", "created_at"]
+    list_filter = ["status"]

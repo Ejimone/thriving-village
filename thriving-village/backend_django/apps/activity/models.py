@@ -4,7 +4,7 @@ KIND_CHOICES = [
     (k, k)
     for k in [
         "application", "entry", "enrollment", "save", "rollout", "early-access",
-        "gate-action", "judgment", "team-match", "certificate-issued",
+        "gate-action", "judgment", "team-match", "certificate-issued", "contest-result",
     ]
 ]
 

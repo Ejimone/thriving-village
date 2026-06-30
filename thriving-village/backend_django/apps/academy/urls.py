@@ -3,6 +3,7 @@ from rest_framework.routers import DefaultRouter
 
 from .admin_dashboard_views import (
     AcademyAdminActivityView,
+    AcademyAdminApplicationsView,
     AcademyAdminOverviewView,
     AcademyAdminRosterRequestsView,
     AcademyAdminTopRatedView,
@@ -18,8 +19,10 @@ from .views import (
     AcademyMaterialPlaybackTokenView,
     AcademyMaterialView,
     AcademyTeamViewSet,
+    CancelAcademyApplicationView,
     CertificateVerifyView,
     JudgeQueueView,
+    MyAcademyApplicationsView,
     RateSubmissionView,
     RosterRequestStatusView,
 )
@@ -65,4 +68,11 @@ urlpatterns = router.urls + [
         AcademyAdminRosterRequestsView.as_view(),
         name="academy-admin-roster-requests",
     ),
+    path("me/academy-applications", MyAcademyApplicationsView.as_view(), name="me-academy-applications"),
+    path(
+        "academy-applications/<int:pk>/cancel",
+        CancelAcademyApplicationView.as_view(),
+        name="academy-application-cancel",
+    ),
+    path("academy-admin/applications", AcademyAdminApplicationsView.as_view(), name="academy-admin-applications"),
 ]

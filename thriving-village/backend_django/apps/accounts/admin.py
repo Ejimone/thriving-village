@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 from unfold.admin import ModelAdmin
 
-from .models import User
+from .models import AcademyUser, User
 
 
 @admin.register(User)
@@ -22,3 +22,18 @@ class UserAdmin(ModelAdmin, DjangoUserAdmin):
     add_fieldsets = (
         (None, {"fields": ("email", "username", "password1", "password2", "role")}),
     )
+
+
+@admin.register(AcademyUser)
+class AcademyUserAdmin(ModelAdmin):
+    """Separate table from User above — Academy student/facilitator/judge
+    accounts only. No password field exposed: accounts are created via the
+    /academy/auth/register and academy-admin/users API endpoints (which
+    hash correctly via set_password) — this table is for browsing and
+    role/status management, not for typing plaintext passwords into a form."""
+
+    ordering = ["email"]
+    list_display = ["email", "username", "name", "role", "confirmed", "blocked"]
+    list_filter = ["role", "confirmed", "blocked"]
+    search_fields = ["email", "username", "name"]
+    fields = ["email", "username", "name", "whatsapp", "role", "confirmed", "blocked", "is_active"]

@@ -10,7 +10,6 @@ URL/query shapes here are designed DRF-idiomatic from scratch; only the
 ported faithfully, since that's the part actually validated by the spec.
 """
 
-from django.conf import settings
 from django.db import models
 
 
@@ -52,7 +51,7 @@ class AcademyCohort(models.Model):
 
     name = models.CharField(max_length=255)
     course = models.ForeignKey(AcademyCourse, related_name="cohorts", on_delete=models.CASCADE)
-    facilitator = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="facilitated_cohorts", on_delete=models.PROTECT)
+    facilitator = models.ForeignKey("accounts.AcademyUser", related_name="facilitated_cohorts", on_delete=models.PROTECT)
     weeks_total = models.PositiveIntegerField()
     days_total = models.PositiveIntegerField()
     start_date = models.DateField()
@@ -60,6 +59,7 @@ class AcademyCohort(models.Model):
     released_week = models.PositiveIntegerField(default=0)
     min_completion = models.PositiveIntegerField(default=60)
     check_weeks = models.JSONField(default=_default_check_weeks)  # weeks the facilitator gate-checks pace at
+    capacity = models.PositiveIntegerField(null=True, blank=True)  # max self-serve enrollments; null = uncapped
 
     class Meta:
         ordering = ["-start_date"]
@@ -93,7 +93,7 @@ class AcademyMaterial(models.Model):
 class AcademyEnrollment(models.Model):
     STATUS_CHOICES = [("In progress", "In progress"), ("Starting soon", "Starting soon"), ("Completed", "Completed")]
 
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="academy_enrollments", on_delete=models.CASCADE)
+    user = models.ForeignKey("accounts.AcademyUser", related_name="academy_enrollments", on_delete=models.CASCADE)
     cohort = models.ForeignKey(AcademyCohort, related_name="enrollments", on_delete=models.CASCADE)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="Starting soon")
     current_day = models.PositiveIntegerField(default=1)
@@ -109,6 +109,25 @@ class AcademyEnrollment(models.Model):
     class Meta:
         ordering = ["-created_at"]
         unique_together = [("user", "cohort")]
+
+
+APPLICATION_STATUS_CHOICES = [("Waitlisted", "Waitlisted"), ("Enrolled", "Enrolled"), ("Cancelled", "Cancelled")]
+
+
+class AcademyApplication(models.Model):
+    """Self-serve waitlist record: a student applies to a course (not a
+    cohort directly); apply_to_course() in services.py either creates an
+    AcademyEnrollment immediately or one of these. No unique_together on
+    (user, course) — re-applying after a Cancelled application must produce
+    a fresh row, unlike AcademyEnrollment's one-row-per-(user, cohort)."""
+
+    user = models.ForeignKey("accounts.AcademyUser", related_name="academy_applications", on_delete=models.CASCADE)
+    course = models.ForeignKey(AcademyCourse, related_name="applications", on_delete=models.CASCADE)
+    status = models.CharField(max_length=20, choices=APPLICATION_STATUS_CHOICES, default="Waitlisted")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at"]
 
 
 def _generate_verification_code() -> str:
@@ -170,7 +189,7 @@ class AcademySubmission(models.Model):
 
 class AcademyJudgment(models.Model):
     submission = models.ForeignKey(AcademySubmission, related_name="judgments", on_delete=models.CASCADE)
-    judge = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="academy_judgments", on_delete=models.CASCADE)
+    judge = models.ForeignKey("accounts.AcademyUser", related_name="academy_judgments", on_delete=models.CASCADE)
     brief = models.PositiveSmallIntegerField()
     craft = models.PositiveSmallIntegerField()
     originality = models.PositiveSmallIntegerField()
@@ -191,7 +210,7 @@ class AcademyTeam(models.Model):
     cohort = models.ForeignKey(AcademyCohort, related_name="teams", on_delete=models.CASCADE)
     week = models.PositiveIntegerField()
     title = models.CharField(max_length=255)
-    members = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name="academy_teams", blank=True)
+    members = models.ManyToManyField("accounts.AcademyUser", related_name="academy_teams", blank=True)
 
     class Meta:
         ordering = ["-id"]
@@ -215,7 +234,7 @@ class AcademyLiveSession(models.Model):
 class AcademyRosterRequest(models.Model):
     STATUS_CHOICES = [("Pending", "Pending"), ("Fulfilled", "Fulfilled"), ("Dismissed", "Dismissed")]
 
-    facilitator = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="roster_requests", on_delete=models.CASCADE)
+    facilitator = models.ForeignKey("accounts.AcademyUser", related_name="roster_requests", on_delete=models.CASCADE)
     cohort = models.ForeignKey(AcademyCohort, related_name="roster_requests", on_delete=models.CASCADE)
     count = models.PositiveIntegerField(null=True, blank=True)
     note = models.TextField(blank=True)

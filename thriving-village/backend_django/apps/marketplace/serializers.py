@@ -227,9 +227,20 @@ class EnterSerializer(serializers.Serializer):
 
 
 class ContestEntrySerializer(DocumentIdMixin, serializers.ModelSerializer):
+    """`work` mirrors JobApplicationSerializer's `get_cv` — same
+    {url, name, size} shape for a submitted-file field."""
+
+    createdAt = serializers.DateTimeField(source="created_at")
+    work = serializers.SerializerMethodField()
+
     class Meta:
         model = ContestEntry
-        fields = ["name", "whatsapp", "description", "status", "rank", "created_at"]
+        fields = ["name", "whatsapp", "description", "status", "rank", "createdAt", "work"]
+
+    def get_work(self, obj):
+        if not obj.work_url:
+            return None
+        return {"url": obj.work_url, "name": obj.work_name, "size": obj.work_size}
 
 
 class EnrollSerializer(serializers.Serializer):

@@ -1,5 +1,5 @@
 from django.utils import timezone
-from rest_framework import viewsets
+from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -17,6 +17,7 @@ from apps.integrations.mux_client import create_direct_upload, sign_playback_tok
 from .anon_handle import generate_anon_handle
 from .completion import maybe_complete_enrollment
 from .models import (
+    AcademyApplication,
     AcademyCategory,
     AcademyCertificate,
     AcademyCohort,
@@ -32,6 +33,7 @@ from .models import (
 from .progression import ProgressionState, normalize, pace_completion, week_of
 from .roster_request import shape_roster_request
 from .serializers import (
+    AcademyApplicationSerializer,
     AcademyCategorySerializer,
     AcademyCohortSerializer,
     AcademyCohortWriteSerializer,
@@ -45,6 +47,7 @@ from .serializers import (
     AcademyTeamSerializer,
     CertificateVerifySerializer,
     JudgeQueueItemSerializer,
+    OpenCohortSerializer,
     RateSubmissionSerializer,
     RosterEntrySerializer,
     RosterRequestSerializer,
@@ -54,7 +57,7 @@ from .serializers import (
     SubmitTaskSerializer,
     TopRatedEntrySerializer,
 )
-from .services import rollout_to_week
+from .services import apply_to_course, get_open_cohort, promote, rollout_to_week, waitlist_position
 
 ADMIN_WRITE_ACTIONS = ("create", "update", "partial_update", "destroy")
 
@@ -181,6 +184,8 @@ class AcademyCourseViewSet(CachedListMixin, EnvelopeMixin, UnwrapDataMixin, PkFo
         return AcademyCourseWriteSerializer if self.action in ADMIN_WRITE_ACTIONS else AcademyCourseSerializer
 
     def get_permissions(self):
+        if self.action == "apply":
+            return [IsStudentRole()]
         if self.action in ADMIN_WRITE_ACTIONS:
             return [IsAdminRole()]
         return super().get_permissions()
@@ -217,13 +222,48 @@ class AcademyCourseViewSet(CachedListMixin, EnvelopeMixin, UnwrapDataMixin, PkFo
 
         return Response({"data": {"weeksTotal": course.weeks_total, "daysTotal": course.days_total, "weeks": weeks}})
 
+    @action(detail=True, methods=["get"], permission_classes=[AllowAny], url_path="open-cohort")
+    def open_cohort(self, request, slug=None):
+        course = self.get_object()
+        cohort = get_open_cohort(course)
+        if not cohort:
+            return Response({"data": None})
+        return Response({"data": OpenCohortSerializer(cohort).data})
+
+    @action(detail=True, methods=["post"])
+    def apply(self, request, slug=None):
+        """Self-serve cohort assignment: the student applies to the course,
+        not a cohort directly. apply_to_course() finds the course's
+        currently-open cohort and either enrolls immediately (room
+        available) or waitlists (full, or none currently open)."""
+        course = self.get_object()
+        result = apply_to_course(request.user, course)
+
+        if result["outcome"] == "enrolled":
+            cohort = result["cohort"]
+            return Response(
+                {
+                    "data": {
+                        "status": "enrolled",
+                        "enrollmentId": result["enrollment"].id,
+                        "cohort": {"id": cohort.id, "name": cohort.name, "startDate": cohort.start_date},
+                    }
+                },
+                status=status.HTTP_201_CREATED,
+            )
+
+        return Response(
+            {"data": {"status": "waitlisted", "applicationId": result["application"].id, "position": result["position"]}},
+            status=status.HTTP_201_CREATED,
+        )
+
 
 class AcademyCohortViewSet(EnvelopeMixin, UnwrapDataMixin, viewsets.ModelViewSet):
     """No public access at all — ADMIN_ACTIONS grants the core CRUD to Admin
     only; facilitators get scoped custom actions (my_cohorts, rollout,
     threshold), never the raw find/findOne/create/update/delete."""
 
-    queryset = AcademyCohort.objects.select_related("course", "facilitator").all()
+    queryset = AcademyCohort.objects.select_related("course", "course__category", "facilitator").all()
     permission_classes = [IsAdminRole]
 
     def get_serializer_class(self):
@@ -243,6 +283,23 @@ class AcademyCohortViewSet(EnvelopeMixin, UnwrapDataMixin, viewsets.ModelViewSet
         if self.action == "sessions_find":
             return [IsAuthenticated()]
         return super().get_permissions()
+
+    def perform_create(self, serializer):
+        """A freshly created `Enrolling` cohort may immediately absorb a
+        pre-existing waitlist for its course (the ALX-style scenario: a prior
+        cohort filled up, students waitlisted, this new cohort just opened)."""
+        cohort = serializer.save()
+        if cohort.status == "Enrolling":
+            promote(cohort.course)
+
+    def perform_update(self, serializer):
+        """Covers "capacity increased while still open" without diffing
+        old/new capacity — promote() is a cheap no-op when there's no room
+        or no waitlist, so calling it on every update of an Enrolling cohort
+        is a safe superset of "only when capacity increases"."""
+        cohort = serializer.save()
+        if cohort.status == "Enrolling":
+            promote(cohort.course)
 
     def _assert_facilitator_owns(self, request, cohort):
         if request.user.role == Role.ADMIN:
@@ -707,7 +764,7 @@ class AcademyMaterialPlaybackTokenView(APIView):
         material = AcademyMaterial.objects.filter(course_id=course_id, day=day).first()
         if not material or not material.mux_playback_id:
             raise NotFound("No video for this lesson.")
-        return Response({"data": {"token": sign_playback_token(material.mux_playback_id)}})
+        return Response({"data": {"token": sign_playback_token(material.mux_playback_id), "playbackId": material.mux_playback_id}})
 
 
 class MuxWebhookView(APIView):
@@ -751,7 +808,9 @@ class AcademyEnrollmentViewSet(EnvelopeMixin, UnwrapDataMixin, viewsets.ModelVie
         return AcademyEnrollmentCreateSerializer if self.action == "create" else AcademyEnrollmentSerializer
 
     def get_queryset(self):
-        qs = AcademyEnrollment.objects.select_related("user", "cohort", "cohort__course")
+        qs = AcademyEnrollment.objects.select_related(
+            "user", "cohort", "cohort__course", "cohort__course__category", "cohort__facilitator"
+        )
         if self.request.user.role == Role.ADMIN:
             return qs
         return qs.filter(user=self.request.user)
@@ -761,8 +820,10 @@ class AcademyEnrollmentViewSet(EnvelopeMixin, UnwrapDataMixin, viewsets.ModelVie
             return [IsAdminRole()]
         if self.action == "request_early_access":
             return [IsStudentRole()]
-        if self.action in ("submit_task", "submissions"):
+        if self.action in ("submit_task", "submissions", "team"):
             return [IsStudentRole()]
+        if self.action == "grant_early_access":
+            return [IsAcademyAdminOrFacilitator()]
         return super().get_permissions()
 
     def destroy(self, request, *args, **kwargs):
@@ -779,8 +840,8 @@ class AcademyEnrollmentViewSet(EnvelopeMixin, UnwrapDataMixin, viewsets.ModelVie
         return Response(status=204)
 
     def _load_own_enrollment(self, request, pk):
-        """Strict: the daily-flow actions (submit/list/request-early-access)
-        only ever make sense as "my own enrollment" — no admin bypass."""
+        """Strict: the daily-flow actions (submit/list/request-early-access/
+        team) only ever make sense as "my own enrollment" — no admin bypass."""
         enrollment = (
             AcademyEnrollment.objects.select_related("user", "cohort", "cohort__course")
             .filter(pk=pk, user=request.user)
@@ -788,6 +849,22 @@ class AcademyEnrollmentViewSet(EnvelopeMixin, UnwrapDataMixin, viewsets.ModelVie
         )
         if not enrollment:
             raise NotFound("Enrollment not found.")
+        return enrollment
+
+    def _load_enrollment_for_facilitator(self, request, pk):
+        """Facilitator/admin-scoped loader for grant_early_access — same
+        "don't reveal existence to a non-owner" pattern as
+        AcademyCohortViewSet._assert_facilitator_owns (404, not 403)."""
+        enrollment = (
+            AcademyEnrollment.objects.select_related("user", "cohort", "cohort__course")
+            .filter(pk=pk)
+            .first()
+        )
+        if not enrollment:
+            raise NotFound("Enrollment not found.")
+        if request.user.role != Role.ADMIN:
+            if request.user.role != Role.FACILITATOR or enrollment.cohort.facilitator_id != request.user.id:
+                raise NotFound("Enrollment not found.")
         return enrollment
 
     @action(detail=True, methods=["post"], url_path="request-early-access")
@@ -871,6 +948,97 @@ class AcademyEnrollmentViewSet(EnvelopeMixin, UnwrapDataMixin, viewsets.ModelVie
         enrollment = self._load_own_enrollment(request, pk)
         rows = AcademySubmission.objects.filter(enrollment=enrollment).order_by("-day")
         return Response({"data": SubmissionSerializer(rows, many=True).data})
+
+    @action(detail=True, methods=["get"])
+    def team(self, request, pk=None):
+        """GET .../academy-enrollments/:id/team — the student's own
+        teammates for their current group assignment, excluding self."""
+        enrollment = self._load_own_enrollment(request, pk)
+        team = (
+            AcademyTeam.objects.filter(cohort=enrollment.cohort, members=enrollment.user)
+            .prefetch_related("members")
+            .first()
+        )
+        if not team:
+            return Response({"data": None})
+        members = [m for m in team.members.all() if m.id != enrollment.user_id]
+        return Response(
+            {"data": [{"id": m.id, "name": m.name or m.username, "email": m.email, "whatsapp": m.whatsapp} for m in members]}
+        )
+
+    @action(detail=True, methods=["post"], url_path="grant-early-access")
+    def grant_early_access(self, request, pk=None):
+        """Facilitator/admin approval half of the request→grant flow (the
+        student-side request_early_access action only sets a flag — this is
+        the part that actually unlocks the next week). Adds exactly
+        `released_week + 1` to earlyWeeks (not a range) and immediately
+        advances currentDay if the student was caught up, via the same
+        ProgressionState/normalize logic submit_task uses."""
+        enrollment = self._load_enrollment_for_facilitator(request, pk)
+        cohort = enrollment.cohort
+
+        new_week = cohort.released_week + 1
+        early_weeks = enrollment.early_weeks if new_week in enrollment.early_weeks else [*enrollment.early_weeks, new_week]
+
+        state = ProgressionState(
+            current_day=enrollment.current_day,
+            submitted_days=enrollment.submitted_days,
+            released_week=cohort.released_week,
+            early_weeks=early_weeks,
+        )
+        next_state = normalize(state, cohort.days_total)
+
+        enrollment.early_access_requested = False
+        enrollment.early_weeks = early_weeks
+        enrollment.current_day = next_state.current_day
+        enrollment.save(update_fields=["early_access_requested", "early_weeks", "current_day"])
+
+        log_activity(
+            who=enrollment.user.name or enrollment.user.username,
+            what="was granted early access to the next week",
+            kind="early-access",
+        )
+        return Response({"data": {"earlyWeeks": enrollment.early_weeks, "currentDay": enrollment.current_day}})
+
+
+class MyAcademyApplicationsView(APIView):
+    """GET /me/academy-applications — dashboard state for a student with no
+    enrollment yet: "you applied to X, you're #3 on the waitlist." Position
+    is live-computed per row, not stored."""
+
+    permission_classes = [IsStudentRole]
+
+    def get(self, request):
+        rows = AcademyApplication.objects.filter(user=request.user).select_related("course").order_by("-created_at")
+        data = [
+            {
+                "id": a.id,
+                "status": a.status,
+                "position": waitlist_position(a) if a.status == "Waitlisted" else None,
+                "course": {"id": a.course.id, "title": a.course.title, "slug": a.course.slug},
+                "createdAt": a.created_at,
+            }
+            for a in rows
+        ]
+        return Response({"data": AcademyApplicationSerializer(data, many=True).data})
+
+
+class CancelAcademyApplicationView(APIView):
+    """POST /academy-applications/:id/cancel — self only, no admin bypass
+    (mirrors AcademyEnrollmentViewSet._load_own_enrollment's strictness)."""
+
+    permission_classes = [IsStudentRole]
+
+    def post(self, request, pk):
+        application = AcademyApplication.objects.filter(pk=pk, user=request.user).first()
+        if not application:
+            raise NotFound("Application not found.")
+        if application.status != "Waitlisted":
+            raise Conflict("This application can no longer be cancelled.")
+
+        application.status = "Cancelled"
+        application.save(update_fields=["status"])
+        return Response({"data": {"status": application.status}})
 
 
 class AcademyJudgingView(APIView):

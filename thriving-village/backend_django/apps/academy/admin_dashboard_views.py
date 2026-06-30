@@ -4,23 +4,36 @@ admin-dashboard, deferred to Stage 12) — everything here is plain
 request/response.
 """
 
-from django.contrib.auth import get_user_model
 from rest_framework.exceptions import NotFound, ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.accounts.models import Role
+from apps.accounts.models import AcademyUser, Role
 from apps.accounts.permissions import IsAdminRole
 from apps.activity.models import ActivityLog
 from apps.core.cache import cached
 
-from .models import AcademyCategory, AcademyCohort, AcademyCourse, AcademyEnrollment, AcademyJudgment, AcademyRosterRequest
+from .models import (
+    APPLICATION_STATUS_CHOICES,
+    AcademyApplication,
+    AcademyCategory,
+    AcademyCohort,
+    AcademyCourse,
+    AcademyEnrollment,
+    AcademyJudgment,
+    AcademyRosterRequest,
+)
 from .roster_request import shape_roster_request
+from .serializers import AcademyAdminApplicationSerializer
+from .services import waitlist_position
 
-User = get_user_model()
-
-ACADEMY_KINDS = ["rollout", "early-access", "gate-action", "judgment", "team-match", "certificate-issued"]
-ACADEMY_ROLES = [Role.STUDENT, Role.FACILITATOR, Role.JUDGE, Role.ADMIN]
+ACADEMY_KINDS = ["rollout", "early-access", "gate-action", "judgment", "team-match", "certificate-issued", "application"]
+# Admin is excluded here on purpose: Admin accounts live in the separate
+# accounts.User table, not AcademyUser, so this admin tooling — which now
+# reads/writes AcademyUser exclusively — can only ever search/promote
+# within student/facilitator/judge. "Promoting" someone to Admin isn't a
+# role-field edit anymore, it's a different table entirely.
+ACADEMY_ROLES = [Role.STUDENT, Role.FACILITATOR, Role.JUDGE]
 
 
 class AcademyAdminOverviewView(APIView):
@@ -75,9 +88,9 @@ class AcademyAdminActivityView(APIView):
 class AcademyAdminUsersView(APIView):
     """Name-searchable picker backing admin forms (assign a facilitator to a
     cohort, enroll a student, change a role) — replaces raw "type a user ID"
-    inputs. `role` is optional: omit it to search across all 4 Academy roles
-    at once (deliberately excludes Talent/Employer — this is an Academy
-    tool)."""
+    inputs. `role` is optional: omit it to search across all 3 Academy
+    roles at once. Operates on the separate AcademyUser table, not the
+    main accounts.User."""
 
     permission_classes = [IsAdminRole]
 
@@ -87,7 +100,7 @@ class AcademyAdminUsersView(APIView):
         if role and role.lower() not in ACADEMY_ROLES:
             raise ValidationError(f"role must be one of: {', '.join(r.label for r in ACADEMY_ROLES)}")
 
-        qs = User.objects.filter(role__in=([role.lower()] if role else ACADEMY_ROLES))
+        qs = AcademyUser.objects.filter(role__in=([role.lower()] if role else ACADEMY_ROLES))
         if search:
             qs = qs.filter(name__icontains=search)
         qs = qs.order_by("name")
@@ -109,7 +122,7 @@ class AcademyAdminUsersView(APIView):
 
     def post(self, request):
         """Always lands the new account as Student — promotion to
-        Facilitator/Judge/Admin is a deliberate separate step
+        Facilitator/Judge is a deliberate separate step
         (AcademyAdminUserRoleView below), never implicit."""
         name = request.data.get("name")
         email = request.data.get("email")
@@ -119,12 +132,12 @@ class AcademyAdminUsersView(APIView):
             raise ValidationError("name, email, username and password are required.")
 
         email = email.lower()
-        if User.objects.filter(email=email).exists():
+        if AcademyUser.objects.filter(email=email).exists():
             raise ValidationError("Email already in use.")
-        if User.objects.filter(username=username).exists():
+        if AcademyUser.objects.filter(username=username).exists():
             raise ValidationError("Username already in use.")
 
-        user = User.objects.create_user(
+        user = AcademyUser.objects.create_user(
             email=email,
             password=password,
             username=username,
@@ -144,7 +157,7 @@ class AcademyAdminUserRoleView(APIView):
         if not role or role.lower() not in ACADEMY_ROLES:
             raise ValidationError(f"role is required and must be one of: {', '.join(r.label for r in ACADEMY_ROLES)}")
 
-        user = User.objects.filter(pk=pk).first()
+        user = AcademyUser.objects.filter(pk=pk).first()
         if not user:
             raise NotFound("User not found.")
 
@@ -161,3 +174,32 @@ class AcademyAdminRosterRequestsView(APIView):
             AcademyRosterRequest.objects.select_related("cohort__course", "facilitator").order_by("-created_at")
         )
         return Response({"data": [shape_roster_request(r) for r in requests]})
+
+
+class AcademyAdminApplicationsView(APIView):
+    """GET /academy-admin/applications?status=Waitlisted — ops visibility
+    across every course's waitlist."""
+
+    permission_classes = [IsAdminRole]
+    APPLICATION_STATUSES = dict(APPLICATION_STATUS_CHOICES)
+
+    def get(self, request):
+        status_param = request.query_params.get("status")
+        qs = AcademyApplication.objects.select_related("user", "course").order_by("-created_at")
+        if status_param:
+            if status_param not in self.APPLICATION_STATUSES:
+                raise ValidationError(f"status must be one of: {', '.join(self.APPLICATION_STATUSES)}")
+            qs = qs.filter(status=status_param)
+
+        data = [
+            {
+                "id": a.id,
+                "status": a.status,
+                "position": waitlist_position(a) if a.status == "Waitlisted" else None,
+                "user": {"id": a.user.id, "name": a.user.name or a.user.username, "email": a.user.email},
+                "course": {"id": a.course.id, "title": a.course.title},
+                "createdAt": a.created_at,
+            }
+            for a in qs
+        ]
+        return Response({"data": AcademyAdminApplicationSerializer(data, many=True).data})

@@ -1,11 +1,14 @@
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
-from .models import Role
+from .models import AcademyUser, Role
 
 User = get_user_model()
 
-ALLOWED_REGISTER_ROLES = {Role.TALENT, Role.EMPLOYER, Role.STUDENT}
+# Student signup moved to AcademyRegisterSerializer/the /academy/auth/*
+# endpoints below, backed by the separate AcademyUser table — the main
+# register endpoint only ever creates marketplace accounts now.
+ALLOWED_REGISTER_ROLES = {Role.TALENT, Role.EMPLOYER}
 
 
 class RegisterSerializer(serializers.Serializer):
@@ -64,6 +67,49 @@ class MeSerializer(serializers.Serializer):
     than the raw `role` attribute, or every role-gated redirect/permission
     check on the frontend silently never matches.
     """
+
+    id = serializers.IntegerField()
+    username = serializers.CharField()
+    email = serializers.EmailField()
+    role = serializers.CharField(source="get_role_display")
+
+
+class AcademyRegisterSerializer(serializers.Serializer):
+    """Student-only self-serve signup for the Academy realm — no `role`
+    field at all, always Role.STUDENT. Facilitator/judge accounts stay
+    admin-promoted-only (AcademyAdminUserRoleView), matching the
+    restriction the old shared-table flow already enforced. Uniqueness is
+    scoped to AcademyUser only, independent of the main accounts.User
+    table — the two realms were never meant to be the same people."""
+
+    username = serializers.CharField(min_length=3)
+    email = serializers.EmailField()
+    password = serializers.CharField(min_length=6, write_only=True)
+
+    def validate_email(self, value):
+        value = value.lower()
+        if AcademyUser.objects.filter(email=value).exists():
+            raise serializers.ValidationError("Email is already taken.")
+        return value
+
+    def validate_username(self, value):
+        if AcademyUser.objects.filter(username=value).exists():
+            raise serializers.ValidationError("Username is already taken.")
+        return value
+
+    def create(self, validated_data):
+        return AcademyUser.objects.create_user(
+            email=validated_data["email"],
+            password=validated_data["password"],
+            username=validated_data["username"],
+            role=Role.STUDENT,
+            confirmed=True,
+            blocked=False,
+        )
+
+
+class AcademyMeSerializer(serializers.Serializer):
+    """Same shape as MeSerializer, backed by AcademyUser instead of User."""
 
     id = serializers.IntegerField()
     username = serializers.CharField()

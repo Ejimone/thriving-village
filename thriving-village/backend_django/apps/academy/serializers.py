@@ -14,6 +14,7 @@ from .models import (
     AcademyMaterial,
     AcademySubmission,
 )
+from .services import seats_remaining
 
 
 class AcademyCategorySerializer(DocumentIdMixin, serializers.ModelSerializer):
@@ -62,9 +63,12 @@ class FacilitatorSerializer(serializers.Serializer):
 class AcademyCohortSerializer(DocumentIdMixin, serializers.ModelSerializer):
     """`facilitator` is shaped to {id, name} only — mirrors
     backend/src/api/academy-cohort/controllers/academy-cohort.ts's
-    `shapeFacilitator`, never exposing email/whatsapp/role here."""
+    `shapeFacilitator`, never exposing email/whatsapp/role here. `course` is
+    nested (full AcademyCourseSerializer shape, not a bare id) so callers
+    can read `cohort.course.title`/`.category` without a second fetch."""
 
     facilitator = serializers.SerializerMethodField()
+    course = serializers.SerializerMethodField()
     weeksTotal = serializers.IntegerField(source="weeks_total")
     daysTotal = serializers.IntegerField(source="days_total")
     startDate = serializers.DateField(source="start_date")
@@ -76,13 +80,16 @@ class AcademyCohortSerializer(DocumentIdMixin, serializers.ModelSerializer):
         model = AcademyCohort
         fields = [
             "id", "name", "course", "facilitator", "weeksTotal", "daysTotal", "startDate",
-            "status", "releasedWeek", "minCompletion", "checkWeeks",
+            "status", "releasedWeek", "minCompletion", "checkWeeks", "capacity",
         ]
 
     def get_facilitator(self, obj):
         if not obj.facilitator_id:
             return None
         return {"id": obj.facilitator.id, "name": obj.facilitator.name or obj.facilitator.username}
+
+    def get_course(self, obj):
+        return AcademyCourseSerializer(obj.course).data
 
 
 class AcademyCohortWriteSerializer(DocumentIdMixin, serializers.ModelSerializer):
@@ -92,13 +99,28 @@ class AcademyCohortWriteSerializer(DocumentIdMixin, serializers.ModelSerializer)
     releasedWeek = serializers.IntegerField(source="released_week", required=False)
     minCompletion = serializers.IntegerField(source="min_completion", required=False)
     checkWeeks = serializers.JSONField(source="check_weeks", required=False)
+    capacity = serializers.IntegerField(required=False, allow_null=True)
 
     class Meta:
         model = AcademyCohort
         fields = [
             "id", "name", "course", "facilitator", "weeksTotal", "daysTotal", "startDate",
-            "status", "releasedWeek", "minCompletion", "checkWeeks",
+            "status", "releasedWeek", "minCompletion", "checkWeeks", "capacity",
         ]
+
+
+class OpenCohortSerializer(DocumentIdMixin, serializers.Serializer):
+    """Backs GET .../open-cohort — the course-page "Cohort 8, starts July 14,
+    12 seats left" lookup students see before they apply."""
+
+    id = serializers.IntegerField()
+    name = serializers.CharField()
+    startDate = serializers.DateField(source="start_date")
+    capacity = serializers.IntegerField(allow_null=True)
+    seatsLeft = serializers.SerializerMethodField()
+
+    def get_seatsLeft(self, obj):
+        return seats_remaining(obj)
 
 
 class AcademyMaterialSerializer(serializers.ModelSerializer):
@@ -128,10 +150,15 @@ class AcademyMaterialWriteSerializer(serializers.Serializer):
 
 
 class AcademyEnrollmentSerializer(serializers.ModelSerializer):
+    """`cohort` is nested (full AcademyCohortSerializer shape, which itself
+    nests `course`) so `enrollment.cohort.name`/`.course.title` are readable
+    without a second fetch — same reasoning as AcademyCohortSerializer.course."""
+
     currentDay = serializers.IntegerField(source="current_day")
     submittedDays = serializers.JSONField(source="submitted_days")
     earlyAccessRequested = serializers.BooleanField(source="early_access_requested")
     earlyWeeks = serializers.JSONField(source="early_weeks")
+    cohort = serializers.SerializerMethodField()
 
     class Meta:
         model = AcademyEnrollment
@@ -139,6 +166,9 @@ class AcademyEnrollmentSerializer(serializers.ModelSerializer):
             "id", "user", "cohort", "status", "currentDay", "submittedDays",
             "earlyAccessRequested", "earlyWeeks", "removed", "shortlisted",
         ]
+
+    def get_cohort(self, obj):
+        return AcademyCohortSerializer(obj.cohort).data
 
 
 class AcademyEnrollmentCreateSerializer(serializers.ModelSerializer):
@@ -150,6 +180,30 @@ class AcademyEnrollmentCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = AcademyEnrollment
         fields = ["id", "user", "cohort", "status"]
+
+
+class AcademyApplicationSerializer(serializers.Serializer):
+    """Backs GET /me/academy-applications — built from plain dicts the view
+    assembles (course nested, position live-computed), same convention as
+    RosterEntrySerializer below."""
+
+    id = serializers.IntegerField()
+    status = serializers.CharField()
+    position = serializers.IntegerField(allow_null=True)
+    course = serializers.DictField()
+    createdAt = serializers.DateTimeField()
+
+
+class AcademyAdminApplicationSerializer(serializers.Serializer):
+    """Backs GET /academy-admin/applications — admin-wide view, adds `user`
+    alongside the same course/position/createdAt shape."""
+
+    id = serializers.IntegerField()
+    status = serializers.CharField()
+    position = serializers.IntegerField(allow_null=True)
+    user = serializers.DictField()
+    course = serializers.DictField()
+    createdAt = serializers.DateTimeField()
 
 
 # --- Stage 8: submissions + judging + anonymity.
