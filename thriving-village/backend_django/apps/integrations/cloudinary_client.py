@@ -14,7 +14,10 @@ import cloudinary
 import cloudinary.uploader
 from django.conf import settings
 
+from apps.integrations.circuit_breaker import CircuitBreaker
+
 _configured = False
+_breaker = CircuitBreaker(failure_threshold=3, cooldown_seconds=30, half_open_successes=1, max_concurrent=4)
 
 
 def _ensure_configured():
@@ -35,13 +38,13 @@ def upload_file(file, folder: str) -> dict:
     {url, name, size, public_id} — matches the shape job/contest controllers
     expose for `cv`/`work` in the applicants/admin views."""
     _ensure_configured()
-    result = cloudinary.uploader.upload(
+    result = _breaker.exec(lambda: cloudinary.uploader.upload(
         file,
         folder=folder,
         resource_type="auto",
         use_filename=True,
         unique_filename=True,
-    )
+    ))
     return {
         "url": result["secure_url"],
         "name": file.name,
@@ -54,4 +57,4 @@ def delete_file(public_id: str) -> None:
     if not public_id:
         return
     _ensure_configured()
-    cloudinary.uploader.destroy(public_id, invalidate=True)
+    _breaker.exec(lambda: cloudinary.uploader.destroy(public_id, invalidate=True))

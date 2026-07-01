@@ -92,7 +92,7 @@ class ContestSerializer(DocumentIdMixin, serializers.ModelSerializer):
         return max(amounts) if amounts else 0
 
     def get_winnerCount(self, obj):
-        return obj.prizes.count()
+        return len(obj.prizes.all())
 
 
 class LessonSerializer(serializers.ModelSerializer):
@@ -142,7 +142,7 @@ class CourseListSerializer(DocumentIdMixin, serializers.ModelSerializer):
         ]
 
     def get_lessonCount(self, obj):
-        return sum(m.lessons.count() for m in obj.modules.all())
+        return sum(len(m.lessons.all()) for m in obj.modules.all())
 
 
 class CourseDetailSerializer(DocumentIdMixin, serializers.ModelSerializer):
@@ -159,7 +159,7 @@ class CourseDetailSerializer(DocumentIdMixin, serializers.ModelSerializer):
         ]
 
     def get_lessonCount(self, obj):
-        return sum(len(m["lessons"]) for m in ModuleSerializer(obj.modules.all(), many=True).data)
+        return sum(len(m.lessons.all()) for m in obj.modules.all())
 
 
 class ProductSerializer(DocumentIdMixin, serializers.ModelSerializer):

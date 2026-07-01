@@ -1,3 +1,4 @@
+from django.db.models import Avg
 from django.utils import timezone
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
@@ -12,6 +13,7 @@ from apps.activity.utils import log_activity
 from apps.core.cache import invalidate_scope
 from apps.core.exceptions import Conflict
 from apps.core.mixins import CachedListMixin, EnvelopeMixin, PkForWriteMixin, UnwrapDataMixin
+from apps.integrations.circuit_breaker import BulkheadRejectedError, CircuitOpenError
 from apps.integrations.mux_client import create_direct_upload, sign_playback_token, unwrap_webhook_event
 
 from .anon_handle import generate_anon_handle
@@ -441,17 +443,21 @@ class AcademyCohortViewSet(EnvelopeMixin, UnwrapDataMixin, viewsets.ModelViewSet
     def top_rated(self, request, pk=None):
         cohort = self.get_object()
         self._assert_facilitator_owns(request, cohort)
-        enrollments = AcademyEnrollment.objects.filter(cohort=cohort, removed=False).select_related("user")
+        avg_by_enrollment = {
+            row["submission__enrollment_id"]: row["avg"]
+            for row in AcademyJudgment.objects.filter(submission__enrollment__cohort=cohort)
+            .values("submission__enrollment_id")
+            .annotate(avg=Avg("average"))
+        }
 
+        enrollments = AcademyEnrollment.objects.filter(cohort=cohort, removed=False).select_related("user")
         rows = []
         for e in enrollments:
-            averages = list(
-                AcademyJudgment.objects.filter(submission__enrollment=e).values_list("average", flat=True)
-            )
-            avg = round((sum(averages) / len(averages)) * 10) / 10 if averages else 0
-            rows.append({"userId": e.user_id, "name": e.user.name or e.user.username, "avgScore": float(avg)})
+            avg = round(float(avg_by_enrollment.get(e.id, 0) or 0) * 10) / 10
+            if avg > 0:
+                rows.append({"userId": e.user_id, "name": e.user.name or e.user.username, "avgScore": avg})
 
-        rows = sorted((r for r in rows if r["avgScore"] > 0), key=lambda r: r["avgScore"], reverse=True)
+        rows = sorted(rows, key=lambda r: r["avgScore"], reverse=True)
         return Response({"data": TopRatedEntrySerializer(rows, many=True).data})
 
     @action(detail=True, methods=["post"], url_path="students/(?P<uid>[0-9]+)/shortlist")
@@ -746,7 +752,10 @@ class AcademyMaterialMuxUploadUrlView(APIView):
     def post(self, request, course_id, day):
         if request.user.role not in (Role.ADMIN, Role.FACILITATOR) or not _can_access_course_material(request.user, course_id):
             raise PermissionDenied()
-        upload = create_direct_upload()
+        try:
+            upload = create_direct_upload()
+        except (CircuitOpenError, BulkheadRejectedError):
+            return Response({"error": {"message": "Video upload service temporarily unavailable.", "status": 503}}, status=503)
         AcademyMaterial.objects.update_or_create(course_id=course_id, day=day, defaults={"mux_upload_id": upload["id"]})
         return Response({"data": {"uploadUrl": upload["url"], "uploadId": upload["id"]}})
 

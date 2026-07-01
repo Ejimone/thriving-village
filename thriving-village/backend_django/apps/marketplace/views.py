@@ -17,6 +17,7 @@ from apps.core.cache import invalidate_scope
 from apps.core.exceptions import Conflict
 from apps.core.mixins import CachedListMixin, EnvelopeMixin, PkForWriteMixin, UnwrapDataMixin
 from apps.core.sse import sse_response, sse_stream
+from apps.integrations.circuit_breaker import BulkheadRejectedError, CircuitOpenError
 from apps.integrations.cloudinary_client import upload_file
 from apps.integrations.pubsub import publish, subscribe
 
@@ -149,7 +150,10 @@ class JobViewSet(CachedListMixin, EnvelopeMixin, UnwrapDataMixin, PkForWriteMixi
         cv_data = {}
         cv_file = files.get("cv")
         if cv_file:
-            uploaded = upload_file(cv_file, folder="job-applications")
+            try:
+                uploaded = upload_file(cv_file, folder="job-applications")
+            except (CircuitOpenError, BulkheadRejectedError):
+                return Response({"error": {"message": "Upload service temporarily unavailable.", "status": 503}}, status=503)
             cv_data = {"cv_url": uploaded["url"], "cv_name": uploaded["name"], "cv_size": uploaded["size"], "cv_public_id": uploaded["public_id"]}
 
         application = JobApplication.objects.create(
@@ -221,7 +225,10 @@ class ContestViewSet(CachedListMixin, EnvelopeMixin, UnwrapDataMixin, PkForWrite
         work_data = {}
         work_file = files.get("work")
         if work_file:
-            uploaded = upload_file(work_file, folder="contest-entries")
+            try:
+                uploaded = upload_file(work_file, folder="contest-entries")
+            except (CircuitOpenError, BulkheadRejectedError):
+                return Response({"error": {"message": "Upload service temporarily unavailable.", "status": 503}}, status=503)
             work_data = {"work_url": uploaded["url"], "work_name": uploaded["name"], "work_size": uploaded["size"], "work_public_id": uploaded["public_id"]}
 
         entry = ContestEntry.objects.create(
@@ -320,7 +327,7 @@ class CourseViewSet(CachedListMixin, EnvelopeMixin, UnwrapDataMixin, PkForWriteM
         return Response({"data": {"id": enrollment.id}}, status=status.HTTP_201_CREATED)
 
 
-class ProductViewSet(EnvelopeMixin, viewsets.ReadOnlyModelViewSet):
+class ProductViewSet(CachedListMixin, EnvelopeMixin, viewsets.ReadOnlyModelViewSet):
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
     lookup_field = "slug"
@@ -328,20 +335,26 @@ class ProductViewSet(EnvelopeMixin, viewsets.ReadOnlyModelViewSet):
     filterset_class = ProductFilter
     search_fields = ["name", "blurb"]
     ordering_fields = ["price", "created_at"]
+    cache_scope = "products"
+    cache_ttl = 60
 
 
-class BrandViewSet(EnvelopeMixin, viewsets.ReadOnlyModelViewSet):
+class BrandViewSet(CachedListMixin, EnvelopeMixin, viewsets.ReadOnlyModelViewSet):
     queryset = Brand.objects.all()
     serializer_class = BrandSerializer
     permission_classes = [AllowAny]
     filterset_fields = ["kind", "featured"]
     ordering_fields = ["name"]
+    cache_scope = "brands"
+    cache_ttl = 120
 
 
-class TestimonialViewSet(EnvelopeMixin, viewsets.ReadOnlyModelViewSet):
+class TestimonialViewSet(CachedListMixin, EnvelopeMixin, viewsets.ReadOnlyModelViewSet):
     queryset = Testimonial.objects.all()
     serializer_class = TestimonialSerializer
     permission_classes = [AllowAny]
+    cache_scope = "testimonials"
+    cache_ttl = 120
 
 
 class SavedJobsView(APIView):
@@ -446,7 +459,7 @@ class MyCoursesView(APIView):
 
         data = []
         for e in enrollments:
-            total_lessons = sum(m.lessons.count() for m in e.course.modules.all())
+            total_lessons = sum(len(m.lessons.all()) for m in e.course.modules.all())
             completed = len(completed_by_course.get(e.course_id, set()))
             progress_pct = round((completed / total_lessons) * 100) if total_lessons > 0 else 0
             data.append({"courseId": e.course.slug, "progress": progress_pct})

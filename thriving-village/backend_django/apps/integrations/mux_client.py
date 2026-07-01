@@ -19,7 +19,10 @@ import jwt
 import requests
 from django.conf import settings
 
+from apps.integrations.circuit_breaker import CircuitBreaker
+
 MUX_API_BASE = "https://api.mux.com"
+_breaker = CircuitBreaker(failure_threshold=3, cooldown_seconds=30, half_open_successes=1, max_concurrent=4)
 
 
 def _signing_private_key() -> bytes:
@@ -34,17 +37,20 @@ def _auth():
 
 
 def create_direct_upload() -> dict:
-    response = requests.post(
-        f"{MUX_API_BASE}/video/v1/uploads",
-        auth=_auth(),
-        json={
-            "cors_origin": settings.ACADEMY_FRONTEND_ORIGIN or "*",
-            "new_asset_settings": {"playback_policy": ["signed"]},
-        },
-        timeout=10,
-    )
-    response.raise_for_status()
-    return response.json()["data"]
+    def _do():
+        response = requests.post(
+            f"{MUX_API_BASE}/video/v1/uploads",
+            auth=_auth(),
+            json={
+                "cors_origin": settings.ACADEMY_FRONTEND_ORIGIN or "*",
+                "new_asset_settings": {"playback_policy": ["signed"]},
+            },
+            timeout=10,
+        )
+        response.raise_for_status()
+        return response.json()["data"]
+
+    return _breaker.exec(_do)
 
 
 def sign_playback_token(playback_id: str, expiration_seconds: int = 60 * 60 * 4) -> str:

@@ -33,7 +33,7 @@ class CachedJWTAuthentication(JWTAuthentication):
             raise InvalidToken("Token contained no recognizable user identification")
 
         realm = validated_token.get("realm", "main")
-        user = cached("auth:user", f"{realm}:{user_id}", 20, lambda: self._fetch_user(user_id, realm))
+        user = cached("auth:user", f"{realm}:{user_id}", 60, lambda: self._fetch_user(user_id, realm))
         if user is None:
             raise InvalidToken("User not found")
         if not user.is_active or user.blocked:

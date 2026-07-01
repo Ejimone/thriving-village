@@ -53,6 +53,7 @@ MIDDLEWARE = [
     # `runserver` already serves static itself in DEBUG, so this only takes
     # over in production).
     "whitenoise.middleware.WhiteNoiseMiddleware",
+    "apps.core.middleware.ApiGZipMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
