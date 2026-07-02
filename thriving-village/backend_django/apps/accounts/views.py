@@ -10,6 +10,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from .emails import send_password_reset
 from .models import AcademyUser, Role
 from .serializers import (
+    ALLOWED_REGISTER_ROLES,
     AcademyMeSerializer,
     AcademyRegisterSerializer,
     ForgotPasswordSerializer,
@@ -252,7 +253,7 @@ class _BaseSupabaseExchangeView(APIView):
     user_model = None
     me_serializer = None
 
-    def _create_user(self, email: str, username: str, body: dict):
+    def _create_user(self, email: str, username: str, body: dict, metadata: dict):
         raise NotImplementedError
 
     def post(self, request):
@@ -279,7 +280,9 @@ class _BaseSupabaseExchangeView(APIView):
                 or metadata.get("full_name")
                 or email.split("@", 1)[0]
             )
-            user = self._create_user(email, _unique_username(self.user_model, username), serializer.validated_data)
+            user = self._create_user(
+                email, _unique_username(self.user_model, username), serializer.validated_data, metadata
+            )
 
         if user.blocked or not user.is_active:
             return Response({"error": {"message": "Your account has been blocked", "status": 403}}, status=403)
@@ -294,14 +297,19 @@ class SupabaseExchangeView(_BaseSupabaseExchangeView):
     user_model = User
     me_serializer = MeSerializer
 
-    def _create_user(self, email, username, body):
+    def _create_user(self, email, username, body, metadata):
+        # Role can also ride along in Supabase user_metadata (set at signUp
+        # time) — needed because the confirmation-email round trip means the
+        # exchange may happen in a fresh context that no longer knows what
+        # the user picked on the signup form.
+        metadata_role = metadata.get("role") if metadata.get("role") in ALLOWED_REGISTER_ROLES else None
         # No local password — Supabase is the credential holder for these
         # accounts (password login still works if they later do a reset).
         return User.objects.create_user(
             email=email,
             password=None,
             username=username,
-            role=body.get("role") or Role.TALENT,
+            role=body.get("role") or metadata_role or Role.TALENT,
             confirmed=True,
             blocked=False,
         )
@@ -315,7 +323,7 @@ class AcademySupabaseExchangeView(_BaseSupabaseExchangeView):
     user_model = AcademyUser
     me_serializer = AcademyMeSerializer
 
-    def _create_user(self, email, username, body):
+    def _create_user(self, email, username, body, metadata):
         return AcademyUser.objects.create_user(
             email=email,
             password=None,

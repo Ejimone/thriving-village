@@ -53,8 +53,8 @@ UI to build:
 The backend now accepts Supabase Auth access tokens and exchanges them for its own
 JWT. Supabase project:
 
-  NEXT_PUBLIC_SUPABASE_URL=https://dodsuxucyonknsdlhwgy.supabase.co
-  NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_r04nUTVvB68bv5WIPydYvA_y7umhCLC
+  NEXT_PUBLIC_SUPABASE_URL=https://lxanqtesqozarxdnqcpm.supabase.co
+  NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_UcW0njDbLrri96CflnXzOg_Sn1LnxA1
 
 Install @supabase/supabase-js and create a browser client with those two values.
 

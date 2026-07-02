@@ -186,6 +186,13 @@ class SupabaseExchangeTests(TestCase):
         self.assertEqual(response.status_code, 403)
 
     @patch("apps.accounts.views.verify_supabase_token")
+    def test_role_from_supabase_metadata(self, verify):
+        verify.return_value = {"email": "meta@example.com", "user_metadata": {"username": "meta", "role": "employer"}}
+        response = self._exchange()
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(User.objects.get(email="meta@example.com").role, Role.EMPLOYER)
+
+    @patch("apps.accounts.views.verify_supabase_token")
     def test_username_collision_gets_suffix(self, verify):
         User.objects.create_user(email="a@example.com", password="pass-123", username="dupe")
         verify.return_value = {"email": "b@example.com", "user_metadata": {"username": "dupe"}}

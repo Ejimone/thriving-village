@@ -24,6 +24,17 @@ export default function SignUpPage() {
         It takes a minute. There&apos;s a place for everyone here.
       </p>
 
+      {state.message ? (
+        <div className="mt-7">
+          <p className="rounded-[var(--tv-radius-sm)] bg-gray-100 p-4 text-[15px] text-gray-800 [letter-spacing:var(--tv-track-tight)]">
+            {state.message}
+          </p>
+          <p className="mt-4 text-[13px] text-gray-500 [letter-spacing:var(--tv-track-tight)]">
+            Once you&apos;ve clicked the link, you&apos;ll be signed in automatically. Wrong email?
+            Just submit the form again.
+          </p>
+        </div>
+      ) : (
       <form action={formAction} className="mt-7 flex flex-col gap-4">
         <input type="hidden" name="role" value="talent" />
         {redirectTo && <input type="hidden" name="redirect" value={redirectTo} />}
@@ -40,6 +51,7 @@ export default function SignUpPage() {
           {pending ? "Creating account…" : "Create account"}
         </Button>
       </form>
+      )}
 
       <p className="mt-6 text-center text-[15px] text-gray-600 [letter-spacing:var(--tv-track-tight)]">
         Already have an account?{" "}

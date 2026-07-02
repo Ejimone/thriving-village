@@ -144,8 +144,8 @@ Behavior:
 New env vars (already added to `backend_django/.env`):
 
 ```
-SUPABASE_URL=https://dodsuxucyonknsdlhwgy.supabase.co
-SUPABASE_ANON_KEY=sb_publishable_r04nUTVvB68bv5WIPydYvA_y7umhCLC   # frontend uses this, not the backend
+SUPABASE_URL=https://lxanqtesqozarxdnqcpm.supabase.co
+SUPABASE_ANON_KEY=sb_publishable_UcW0njDbLrri96CflnXzOg_Sn1LnxA1   # frontend uses this, not the backend
 FRONTEND_URL=http://localhost:3000
 # SUPABASE_JWT_SECRET=   # only needed if the project still signs HS256 tokens
 ```
