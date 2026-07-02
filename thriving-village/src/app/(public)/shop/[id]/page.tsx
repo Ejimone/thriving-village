@@ -12,10 +12,10 @@ export default async function ProductDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const product = await getProduct(id);
+  // Independent reads — the "more products" rail doesn't need the product.
+  const [product, { items: candidates }] = await Promise.all([getProduct(id), getProducts({ pageSize: 4 })]);
   if (!product) notFound();
 
-  const { items: candidates } = await getProducts({ pageSize: 4 });
   const more = candidates.filter((p) => p.id !== product.id).slice(0, 3);
 
   return (
