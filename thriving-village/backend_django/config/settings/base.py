@@ -90,10 +90,21 @@ WSGI_APPLICATION = "config.wsgi.application"
 DATABASES = {
     "default": dj_database_url.parse(
         os.environ.get("DATABASE_URL", f"sqlite:///{BASE_DIR / 'db.sqlite3'}"),
-        conn_max_age=600,
+        conn_max_age=int(os.environ.get("DB_CONN_MAX_AGE", "600")),
+        # Without health checks, a pooled connection the Supabase pooler
+        # dropped during idle gets discovered mid-request as an OperationalError
+        # (a full failed round trip + retry). The ping costs ~nothing against
+        # a warm connection and only runs once per request.
+        conn_health_checks=True,
         ssl_require=os.environ.get("DATABASE_SSL", "false").lower() == "true",
     )
 }
+
+# Sessions only exist for the Django admin (the API is JWT-authenticated,
+# stateless). cached_db keeps the DB row as the source of truth but serves
+# every read from Redis — one fewer remote-Postgres round trip on every
+# /admin/ request, which against the remote pooler is the dominant cost.
+SESSION_ENGINE = "django.contrib.sessions.backends.cached_db"
 
 AUTH_USER_MODEL = "accounts.User"
 
@@ -196,6 +207,12 @@ REST_FRAMEWORK = {
         "rest_framework.filters.SearchFilter",
     ),
     "EXCEPTION_HANDLER": "apps.core.exceptions.envelope_exception_handler",
+    # No default throttle classes — only the views that opt in (password
+    # reset / auth endpoints) declare throttle_classes themselves.
+    "DEFAULT_THROTTLE_RATES": {
+        "auth-burst": "10/min",
+        "password-reset": "5/hour",
+    },
 }
 
 # HS256 + same secret-naming convention as Strapi's JWT_SECRET, fully native
@@ -239,3 +256,37 @@ MUX_SIGNING_KEY_ID = os.environ.get("MUX_KEY_ID")
 MUX_SIGNING_KEY_PRIVATE = os.environ.get("MUX_SIGNING_SECRET_KEY")  # base64-encoded PEM, decoded in mux_client.py
 MUX_WEBHOOK_SECRET = os.environ.get("MUX_WEBHOOK_SECRET")
 ACADEMY_FRONTEND_ORIGIN = os.environ.get("ACADEMY_FRONTEND_ORIGIN")
+
+# --- Email (password reset). SMTP when EMAIL_HOST is configured; falls back
+# to the console backend so local dev prints the reset email (and its code)
+# to the runserver terminal instead of failing.
+if os.environ.get("EMAIL_HOST"):
+    EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+    EMAIL_HOST = os.environ["EMAIL_HOST"]
+    EMAIL_PORT = int(os.environ.get("EMAIL_PORT", "587"))
+    EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
+    EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
+    EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "true").lower() == "true"
+    EMAIL_USE_SSL = os.environ.get("EMAIL_USE_SSL", "false").lower() == "true"
+    EMAIL_TIMEOUT = int(os.environ.get("EMAIL_TIMEOUT", "10"))
+else:
+    EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "Thriving Village <no-reply@thrivingvillage.local>")
+
+# Where password-reset links point. FRONTEND_URL covers the main Next.js app;
+# the Academy frontend reuses ACADEMY_FRONTEND_ORIGIN above (falls back to
+# FRONTEND_URL when unset, since locally they're often the same app).
+FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")
+
+# Reset codes are single-use by construction (they hash the user's current
+# password) and additionally expire after this many seconds.
+PASSWORD_RESET_TIMEOUT = int(os.environ.get("PASSWORD_RESET_TIMEOUT", str(60 * 60 * 2)))
+
+# --- Supabase Auth (optional). When configured, POST /api/auth/supabase and
+# /api/academy/auth/supabase exchange a Supabase access token (from
+# supabase-js signUp/signInWithPassword/OAuth) for this backend's own JWT.
+# Verification prefers the project's JWKS endpoint (new asymmetric keys) and
+# falls back to the legacy HS256 JWT secret when SUPABASE_JWT_SECRET is set.
+SUPABASE_URL = os.environ.get("SUPABASE_URL")
+SUPABASE_JWT_SECRET = os.environ.get("SUPABASE_JWT_SECRET")
+SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY")

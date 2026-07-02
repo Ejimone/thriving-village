@@ -1,6 +1,7 @@
 """Port of backend/src/api/academy-cohort/services/academy-cohort.ts."""
 
 from django.db import transaction
+from django.db.models import Count, IntegerField, OuterRef, Subquery
 
 from apps.activity.utils import log_activity
 from apps.core.exceptions import Conflict
@@ -28,7 +29,8 @@ def rollout_to_week(cohort_id: int, target_week: int) -> AcademyCohort | None:
     AcademyCohort.objects.filter(pk=cohort_id).update(released_week=released_week)
     cohort.released_week = released_week
 
-    enrollments = AcademyEnrollment.objects.filter(cohort_id=cohort_id, removed=False).select_related("user")
+    enrollments = list(AcademyEnrollment.objects.filter(cohort_id=cohort_id, removed=False).select_related("user"))
+    advanced = []
     for enrollment in enrollments:
         state = ProgressionState(
             current_day=enrollment.current_day,
@@ -38,8 +40,13 @@ def rollout_to_week(cohort_id: int, target_week: int) -> AcademyCohort | None:
         )
         next_state = normalize(state, cohort.days_total)
         if next_state.current_day != enrollment.current_day:
-            AcademyEnrollment.objects.filter(pk=enrollment.pk).update(current_day=next_state.current_day)
             enrollment.current_day = next_state.current_day
+            advanced.append(enrollment)
+    # One UPDATE for the whole cohort instead of one per advanced student —
+    # this runs inside the daily cron tick across every running cohort.
+    if advanced:
+        AcademyEnrollment.objects.bulk_update(advanced, ["current_day"], batch_size=500)
+    for enrollment in enrollments:
         maybe_complete_enrollment(enrollment, cohort, cohort.course)
 
     log_activity(who="System", what=f"rolled out week {released_week} for {cohort.name}", kind="rollout")
@@ -67,6 +74,23 @@ def waitlist_position(application: AcademyApplication) -> int:
     return AcademyApplication.objects.filter(
         course=application.course, status="Waitlisted", created_at__lte=application.created_at
     ).count()
+
+
+def with_waitlist_positions(qs):
+    """Annotates each application with `waitlist_position` (same definition
+    as waitlist_position() above) in the one list query, instead of a COUNT
+    round trip per row — the admin applications view was paying one extra
+    query per waitlisted application."""
+    position = (
+        AcademyApplication.objects.filter(
+            course=OuterRef("course"), status="Waitlisted", created_at__lte=OuterRef("created_at")
+        )
+        .order_by()
+        .values("course")
+        .annotate(n=Count("pk"))
+        .values("n")
+    )
+    return qs.annotate(waitlist_position=Subquery(position, output_field=IntegerField()))
 
 
 def apply_to_course(user, course) -> dict:

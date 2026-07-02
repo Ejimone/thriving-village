@@ -115,3 +115,31 @@ class AcademyMeSerializer(serializers.Serializer):
     username = serializers.CharField()
     email = serializers.EmailField()
     role = serializers.CharField(source="get_role_display")
+
+
+class ForgotPasswordSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+
+class ResetPasswordSerializer(serializers.Serializer):
+    """Field names match Strapi's built-in /api/auth/reset-password
+    (code / password / passwordConfirmation), so a frontend written against
+    Strapi's flow ports over without renames."""
+
+    code = serializers.CharField()
+    password = serializers.CharField(min_length=6, write_only=True)
+    passwordConfirmation = serializers.CharField(write_only=True)
+
+    def validate(self, attrs):
+        if attrs["password"] != attrs["passwordConfirmation"]:
+            raise serializers.ValidationError({"passwordConfirmation": "Passwords do not match."})
+        return attrs
+
+
+class SupabaseExchangeSerializer(serializers.Serializer):
+    """POST body for /api/auth/supabase — `username`/`role` only matter on
+    first exchange (account creation); later exchanges ignore them."""
+
+    access_token = serializers.CharField()
+    username = serializers.CharField(min_length=3, required=False, allow_blank=True)
+    role = serializers.ChoiceField(choices=[(r, r) for r in ALLOWED_REGISTER_ROLES], required=False)

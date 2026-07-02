@@ -32,19 +32,23 @@ export default async function DashboardOverview() {
     getJobs({ pageSize: 2 }),
   ]);
 
-  const courses = await Promise.all(myCourses.map((mc) => getCourse(mc.courseId)));
+  const openApplications = myApplications.filter((a) => a.status !== "Closed");
+  const recentApplications = myApplications.slice(0, 3);
+
+  // The three detail lookups only depend on the first batch above, not on
+  // each other — one wave instead of three sequential round-trip waves.
+  const [courses, applicationJobs, entryContests] = await Promise.all([
+    Promise.all(myCourses.map((mc) => getCourse(mc.courseId))),
+    Promise.all(recentApplications.map((a) => getJob(a.jobId))),
+    Promise.all(myEntries.map((e) => getContest(e.contestId))),
+  ]);
+
   const inProgress = myCourses
     .map((mc, i) => ({ ...mc, course: courses[i] }))
     .filter((r) => r.course !== null && r.progress < 100);
-
-  const openApplications = myApplications.filter((a) => a.status !== "Closed");
-  const recentApplications = myApplications.slice(0, 3);
-  const applicationJobs = await Promise.all(recentApplications.map((a) => getJob(a.jobId)));
   const applicationRows = recentApplications
     .map((a, i) => ({ application: a, job: applicationJobs[i] }))
     .filter((r) => r.job !== null);
-
-  const entryContests = await Promise.all(myEntries.map((e) => getContest(e.contestId)));
   const entryRows = myEntries
     .map((e, i) => ({ entry: e, contest: entryContests[i] }))
     .filter((r) => r.contest !== null);

@@ -16,11 +16,11 @@ export default async function ContestDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const contest = await getContest(id);
+  // Both keyed by the same id, independent of each other — fetch in one wave.
+  const [contest, leaderboard] = await Promise.all([getContest(id), getLeaderboard(id)]);
   if (!contest) notFound();
 
   const live = contest.status === "live";
-  const leaderboard = await getLeaderboard(id);
 
   // Prize tiers ordered top-first.
   const prizes = [...contest.prizes].sort((a, b) => a.place - b.place);

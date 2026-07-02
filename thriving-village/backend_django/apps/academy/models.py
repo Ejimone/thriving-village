@@ -63,6 +63,10 @@ class AcademyCohort(models.Model):
 
     class Meta:
         ordering = ["-start_date"]
+        indexes = [
+            # get_open_cohort/apply/promote: (course, status='Enrolling') ORDER BY start_date.
+            models.Index(fields=["course", "status", "start_date"], name="acad_cohort_course_status"),
+        ]
 
     def __str__(self):
         return self.name
@@ -109,6 +113,11 @@ class AcademyEnrollment(models.Model):
     class Meta:
         ordering = ["-created_at"]
         unique_together = [("user", "cohort")]
+        indexes = [
+            # Roster/top-rated/early-access all filter (cohort, removed=False);
+            # the cohort FK index alone still scans removed rows.
+            models.Index(fields=["cohort", "removed"], name="acad_enroll_cohort_removed"),
+        ]
 
 
 APPLICATION_STATUS_CHOICES = [("Waitlisted", "Waitlisted"), ("Enrolled", "Enrolled"), ("Cancelled", "Cancelled")]
@@ -128,6 +137,11 @@ class AcademyApplication(models.Model):
 
     class Meta:
         ordering = ["created_at"]
+        indexes = [
+            # Waitlist position + promote() both scan (course, Waitlisted)
+            # ordered by created_at — this makes that an index-only walk.
+            models.Index(fields=["course", "status", "created_at"], name="acad_app_course_status_at"),
+        ]
 
 
 def _generate_verification_code() -> str:
@@ -185,6 +199,11 @@ class AcademySubmission(models.Model):
 
     class Meta:
         ordering = ["-day"]
+        indexes = [
+            # The judge queue is `rated=False ORDER BY submitted_at LIMIT 50`
+            # on every judge dashboard load.
+            models.Index(fields=["rated", "submitted_at"], name="acad_sub_rated_submitted_at"),
+        ]
 
 
 class AcademyJudgment(models.Model):

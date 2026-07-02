@@ -37,10 +37,13 @@ def copy_academy_users_and_block_old(apps, schema_editor):
     # Postgres's sequence has no idea about these explicit-PK inserts —
     # without this, the first self-registered AcademyUser after this
     # migration collides with a migrated id and 500s on IntegrityError.
-    schema_editor.execute(
-        "SELECT setval(pg_get_serial_sequence('accounts_academyuser', 'id'), "
-        "COALESCE((SELECT MAX(id) FROM accounts_academyuser), 1))"
-    )
+    # (Vendor-guarded so the test suite can run against sqlite, which
+    # rowid-autoincrements past explicit PKs on its own.)
+    if schema_editor.connection.vendor == "postgresql":
+        schema_editor.execute(
+            "SELECT setval(pg_get_serial_sequence('accounts_academyuser', 'id'), "
+            "COALESCE((SELECT MAX(id) FROM accounts_academyuser), 1))"
+        )
 
 
 def unblock_and_delete_academy_users(apps, schema_editor):
