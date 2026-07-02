@@ -59,7 +59,7 @@ from .serializers import (
     SubmitTaskSerializer,
     TopRatedEntrySerializer,
 )
-from .services import apply_to_course, get_open_cohort, promote, rollout_to_week, waitlist_position
+from .services import apply_to_course, get_open_cohort, promote, rollout_to_week, with_waitlist_positions
 
 ADMIN_WRITE_ACTIONS = ("create", "update", "partial_update", "destroy")
 
@@ -1018,12 +1018,14 @@ class MyAcademyApplicationsView(APIView):
     permission_classes = [IsStudentRole]
 
     def get(self, request):
-        rows = AcademyApplication.objects.filter(user=request.user).select_related("course").order_by("-created_at")
+        rows = with_waitlist_positions(
+            AcademyApplication.objects.filter(user=request.user).select_related("course").order_by("-created_at")
+        )
         data = [
             {
                 "id": a.id,
                 "status": a.status,
-                "position": waitlist_position(a) if a.status == "Waitlisted" else None,
+                "position": a.waitlist_position if a.status == "Waitlisted" else None,
                 "course": {"id": a.course.id, "title": a.course.title, "slug": a.course.slug},
                 "createdAt": a.created_at,
             }

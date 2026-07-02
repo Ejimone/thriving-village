@@ -19,6 +19,12 @@ class ActivityLog(models.Model):
 
     class Meta:
         ordering = ["-occurred_at"]
+        indexes = [
+            # Every dashboard reads "latest N, optionally by kind" — without
+            # this the ORDER BY -occurred_at is a full-table sort.
+            models.Index(fields=["-occurred_at"], name="activity_occurred_at_desc"),
+            models.Index(fields=["kind", "-occurred_at"], name="activity_kind_occurred_at"),
+        ]
 
     def __str__(self):
         return f"{self.who} {self.what}"

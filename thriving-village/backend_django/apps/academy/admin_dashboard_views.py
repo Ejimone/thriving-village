@@ -1,9 +1,4 @@
-"""Port of backend/src/api/academy-admin/controllers/academy-admin.ts. The
-`stream` SSE action doesn't exist on this controller (it lives on
-admin-dashboard, deferred to Stage 12) — everything here is plain
-request/response.
-"""
-
+from django.db.models import Avg
 from rest_framework.exceptions import NotFound, ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -25,7 +20,7 @@ from .models import (
 )
 from .roster_request import shape_roster_request
 from .serializers import AcademyAdminApplicationSerializer
-from .services import waitlist_position
+from .services import with_waitlist_positions
 
 ACADEMY_KINDS = ["rollout", "early-access", "gate-action", "judgment", "team-match", "certificate-issued", "application"]
 # Admin is excluded here on purpose: Admin accounts live in the separate
@@ -55,25 +50,23 @@ class AcademyAdminTopRatedView(APIView):
     permission_classes = [IsAdminRole]
 
     def get(self, request):
-        judgments = AcademyJudgment.objects.select_related("submission__enrollment__user")
-
-        by_user = {}
-        for j in judgments:
-            user = j.submission.enrollment.user if j.submission and j.submission.enrollment else None
-            if not user:
-                continue
-            entry = by_user.setdefault(user.id, {"name": user.name or user.username, "total": 0, "count": 0})
-            entry["total"] += float(j.average)
-            entry["count"] += 1
-
-        rows = sorted(
-            (
-                {"userId": user_id, "name": e["name"], "avgScore": round((e["total"] / e["count"]) * 10) / 10}
-                for user_id, e in by_user.items()
-            ),
-            key=lambda r: r["avgScore"],
-            reverse=True,
-        )[:10]
+        # GROUP BY in the database instead of loading every judgment row
+        # (plus its submission/enrollment/user join) into Python — this view
+        # previously scaled linearly with total judgments ever recorded.
+        rows = [
+            {
+                "userId": r["submission__enrollment__user_id"],
+                "name": r["submission__enrollment__user__name"] or r["submission__enrollment__user__username"],
+                "avgScore": round(float(r["avg"]) * 10) / 10,
+            }
+            for r in AcademyJudgment.objects.values(
+                "submission__enrollment__user_id",
+                "submission__enrollment__user__name",
+                "submission__enrollment__user__username",
+            )
+            .annotate(avg=Avg("average"))
+            .order_by("-avg")[:10]
+        ]
         return Response({"data": rows})
 
 
@@ -190,12 +183,13 @@ class AcademyAdminApplicationsView(APIView):
             if status_param not in self.APPLICATION_STATUSES:
                 raise ValidationError(f"status must be one of: {', '.join(self.APPLICATION_STATUSES)}")
             qs = qs.filter(status=status_param)
+        qs = with_waitlist_positions(qs)
 
         data = [
             {
                 "id": a.id,
                 "status": a.status,
-                "position": waitlist_position(a) if a.status == "Waitlisted" else None,
+                "position": a.waitlist_position if a.status == "Waitlisted" else None,
                 "user": {"id": a.user.id, "name": a.user.name or a.user.username, "email": a.user.email},
                 "course": {"id": a.course.id, "title": a.course.title},
                 "createdAt": a.created_at,

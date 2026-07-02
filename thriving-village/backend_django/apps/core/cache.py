@@ -25,6 +25,22 @@ NAMESPACE = "tv"
 _breaker = CircuitBreaker(failure_threshold=5, cooldown_seconds=15, half_open_successes=2, max_concurrent=20)
 
 
+def _raw_redis():
+    """Raw redis-py client when django-redis backs the cache, else None.
+
+    The key registry is a *set* semantically — SADD/SMEMBERS/DEL are atomic
+    and O(1) per member, whereas the portable fallback (get the whole pickled
+    set, union, set it back) is a read-modify-write race under concurrency
+    and re-serializes the entire registry on every cache write.
+    """
+    try:
+        from django_redis import get_redis_connection
+
+        return get_redis_connection("default")
+    except Exception:  # noqa: BLE001 — LocMemCache in local dev
+        return None
+
+
 def _warn_once(scope: str, err: Exception) -> None:
     logger.warning('[cache] Redis unavailable for scope "%s", bypassing cache: %s', scope, err)
 
@@ -44,10 +60,14 @@ def cached(scope: str, key: str, ttl_seconds: int, fetcher):
         return fetcher()
 
     value = fetcher()
+    registry_key = f"{NAMESPACE}:{scope}:keys"
     try:
         _breaker.exec(lambda: cache.set(cache_key, value, ttl_seconds))
-        registry_key = f"{NAMESPACE}:{scope}:keys"
-        _breaker.exec(lambda: cache.set(registry_key, set(cache.get(registry_key) or set()) | {cache_key}, None))
+        redis = _raw_redis()
+        if redis is not None:
+            _breaker.exec(lambda: redis.sadd(registry_key, cache_key))
+        else:
+            _breaker.exec(lambda: cache.set(registry_key, set(cache.get(registry_key) or set()) | {cache_key}, None))
     except (CircuitOpenError, BulkheadRejectedError, Exception) as err:  # noqa: BLE001
         _warn_once(scope, err)
     return value
@@ -57,6 +77,13 @@ def invalidate_scope(scope: str) -> None:
     """Call after any create/update/delete affecting `scope` so the next read isn't stale."""
     registry_key = f"{NAMESPACE}:{scope}:keys"
     try:
+        redis = _raw_redis()
+        if redis is not None:
+            keys = _breaker.exec(lambda: redis.smembers(registry_key))
+            if keys:
+                _breaker.exec(lambda: cache.delete_many([k.decode() if isinstance(k, bytes) else k for k in keys]))
+            _breaker.exec(lambda: redis.delete(registry_key))
+            return
         keys = _breaker.exec(lambda: cache.get(registry_key))
         if keys:
             _breaker.exec(lambda: cache.delete_many(list(keys)))
